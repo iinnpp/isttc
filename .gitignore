@@ -1,0 +1,11 @@
+# jupyter notebook checkpoints
+*.ipynb_checkpoints*
+
+# cache
+*__pycache__/*
+*.cache*
+*scripts/__pycache__/*
+
+
+# idea pycharm project files
+*.idea
