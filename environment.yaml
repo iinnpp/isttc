@@ -1,0 +1,13 @@
+name: isttc
+dependencies:
+  - python
+  - pip
+  - matplotlib
+  - seaborn
+  - numpy
+  - pandas
+  - scipy
+  - pip:
+      - neo
+      - quantities
+      - elephant
