@@ -1,5 +1,5 @@
 """
-Script calculates and saves binned spike trains.
+Script calculates and fits ACF based on spiking data.
 """
 
 import pandas as pd
@@ -14,127 +14,102 @@ import os
 # from scripts.cfg_global import timescales_results_folder_path, dataset_folder_path
 
 
-def get_firing_rate(spike_train_int_l_, fs_):
-    """
-    Calculate firing rate for a single unit.
-
-    :param spike_train_int_l_: list, list of spike times (int), sampling frequency fs_
-    :param fs_: int, sampling frequency in Hz
-    :return: float, firing rate, Hz
-    """
-    n_spikes = len(spike_train_int_l_)
-    last_spike_ts_s = spike_train_int_l_[-1] / fs_
-    fr = n_spikes / last_spike_ts_s
-
-    return fr
-
-
-def bin_spike_train(spike_train_int_l_, bin_length_ms_, fs_, verbose_=False):
-    """
-    Bin spike train.
-
-    :param spike_train_int_l_: list, list of spike times (int), sampling frequency fs_
-    :param bin_length_ms_: int, bin length in ms
-    :param fs_: int, sampling frequency in Hz
-    :param verbose_: bool, default False, diagnostic printout if True, silent otherwise
-    :return: 1d array, binned spike train, each bin contains spike count
-    """
-    bin_length_fs = int(fs_ / 1000 * bin_length_ms_)
-    n_bin_edges = int(np.ceil(spike_train_int_l_[-1] / bin_length_fs))  # using ceil to include the last spike
-    bins_ = np.linspace(0, bin_length_fs * n_bin_edges, n_bin_edges).astype(int)
-    binned_spike_train, _ = np.histogram(spike_train_int_l_, bins_)
-
-    if verbose_:
-        print('Binning spike train: bin_length_ms {}, bin_length_fs {}'.format(bin_length_ms_, bin_length_fs))
-        print('n bins {}, spike bin count: number of spikes in bin - number of bins {}'.format(binned_spike_train.shape,
-                                                                                               np.unique(
-                                                                                                   binned_spike_train,
-                                                                                                   return_counts=True)))
-
-    return binned_spike_train
+# def get_firing_rate(spike_train_int_l_, fs_):
+#     """
+#     Calculate firing rate for a single unit.
+#
+#     :param spike_train_int_l_: list, list of spike times (int), sampling frequency fs_
+#     :param fs_: int, sampling frequency in Hz
+#     :return: float, firing rate, Hz
+#     """
+#     n_spikes = len(spike_train_int_l_)
+#     last_spike_ts_s = spike_train_int_l_[-1] / fs_
+#     fr = n_spikes / last_spike_ts_s
+#
+#     return fr
 
 
-def prepare_binned_dict(sua_l_, fs_, bin_length_, verbose_=False):
-    animal_id_l = []
-    session_id_l = []
-    unit_id_l = []
-    area_id_l = []
-    fr_l = []
-    # rpv_l = []
-    rec_length_l = []
-    binned_spikes_l = []
-    # non_zero_bins_ratio_l = []
+# def prepare_binned_dict(sua_l_, fs_, bin_length_, verbose_=False):
+#     animal_id_l = []
+#     session_id_l = []
+#     unit_id_l = []
+#     area_id_l = []
+#     fr_l = []
+#     # rpv_l = []
+#     rec_length_l = []
+#     binned_spikes_l = []
+#     # non_zero_bins_ratio_l = []
+#
+#     for unit_ in sua_l_:
+#         spikes_ = unit_[4:]
+#         spikes = np.array(spikes_).astype(float)
+#         spike_train_fs = spikes * fs_  # csv is in sec
+#         spike_train_fs_int = list(spike_train_fs.astype(int))
+#
+#         unit_fr = get_firing_rate(spike_train_fs_int, fs_)
+#         # unit_rpv = get_rpv(spikes, fs_)
+#         # get rec length (as last spike time point)
+#         rec_length = spike_train_fs_int[-1]
+#         # get bins
+#         bins_spike_counts = bin_spike_train(spike_train_fs_int, bin_length_, fs_, verbose_=verbose_)
+#         # non_zero_bins_ratio = get_non_zero_bin_ratio(bins_spike_counts, verbose_=verbose_)
+#
+#         animal_id_l.append(unit_[0])
+#         session_id_l.append(unit_[1])
+#         unit_id_l.append(unit_[2])
+#         area_id_l.append(unit_[3])
+#         fr_l.append(unit_fr)
+#         # rpv_l.append(unit_rpv)
+#         rec_length_l.append(rec_length)
+#         binned_spikes_l.append(bins_spike_counts)
+#         # non_zero_bins_ratio_l.append(non_zero_bins_ratio)
+#
+#     # bins_stats = calculate_bins_stats(binned_spikes_l)
+#
+#     output_dict = {'animal_id_l': animal_id_l,
+#                    'session_id_l': session_id_l,
+#                    'unit_id_l': unit_id_l,
+#                    'area_id_l': area_id_l,
+#                    'fr_l': fr_l,
+#                    # 'rpv_l': rpv_l,
+#                    'rec_length_l': rec_length_l,
+#                    'binned_spikes_l': binned_spikes_l,
+#                    # 'non_zero_bins_ratio_l': non_zero_bins_ratio_l,
+#                    # 'non_zero_seqs_list_l': bins_stats['non_zero_seqs_list_l'],
+#                    # 'non_zero_seqs_len_list_l': bins_stats['non_zero_seqs_len_list_l'],
+#                    # 'max_non_zero_seq_len_l': bins_stats['max_non_zero_seq_len_l'],
+#                    # 'non_zero_seq_len_10_count_l': bins_stats['non_zero_seq_len_10_count_l'],
+#                    # 'non_zero_seq_len_5_count_l': bins_stats['non_zero_seq_len_5_count_l']
+#                    }
+#
+#     return output_dict
 
-    for unit_ in sua_l_:
-        spikes_ = unit_[4:]
-        spikes = np.array(spikes_).astype(float)
-        spike_train_fs = spikes * fs_  # csv is in sec
-        spike_train_fs_int = list(spike_train_fs.astype(int))
 
-        unit_fr = get_firing_rate(spike_train_fs_int, fs_)
-        # unit_rpv = get_rpv(spikes, fs_)
-        # get rec length (as last spike time point)
-        rec_length = spike_train_fs_int[-1]
-        # get bins
-        bins_spike_counts = bin_spike_train(spike_train_fs_int, bin_length_, fs_, verbose_=verbose_)
-        # non_zero_bins_ratio = get_non_zero_bin_ratio(bins_spike_counts, verbose_=verbose_)
-
-        animal_id_l.append(unit_[0])
-        session_id_l.append(unit_[1])
-        unit_id_l.append(unit_[2])
-        area_id_l.append(unit_[3])
-        fr_l.append(unit_fr)
-        # rpv_l.append(unit_rpv)
-        rec_length_l.append(rec_length)
-        binned_spikes_l.append(bins_spike_counts)
-        # non_zero_bins_ratio_l.append(non_zero_bins_ratio)
-
-    # bins_stats = calculate_bins_stats(binned_spikes_l)
-
-    output_dict = {'animal_id_l': animal_id_l,
-                   'session_id_l': session_id_l,
-                   'unit_id_l': unit_id_l,
-                   'area_id_l': area_id_l,
-                   'fr_l': fr_l,
-                   # 'rpv_l': rpv_l,
-                   'rec_length_l': rec_length_l,
-                   'binned_spikes_l': binned_spikes_l,
-                   # 'non_zero_bins_ratio_l': non_zero_bins_ratio_l,
-                   # 'non_zero_seqs_list_l': bins_stats['non_zero_seqs_list_l'],
-                   # 'non_zero_seqs_len_list_l': bins_stats['non_zero_seqs_len_list_l'],
-                   # 'max_non_zero_seq_len_l': bins_stats['max_non_zero_seq_len_l'],
-                   # 'non_zero_seq_len_10_count_l': bins_stats['non_zero_seq_len_10_count_l'],
-                   # 'non_zero_seq_len_5_count_l': bins_stats['non_zero_seq_len_5_count_l']
-                   }
-
-    return output_dict
-
-
-def write_bins_stats_df(results_folder_, bin_size_suffix_, binned_data_dict_):
-    output_filename = results_folder_ + 'bsl_sua_binned_' + bin_size_suffix_ \
-                      + '_df.pkl'
-    bins_df = pd.DataFrame(np.vstack((binned_data_dict_['animal_id_l'],
-                                      binned_data_dict_['session_id_l'],
-                                      binned_data_dict_['unit_id_l'],
-                                      binned_data_dict_['area_id_l'],
-                                      # binned_data_dict_['non_zero_bins_ratio_l'],
-                                      binned_data_dict_['fr_l'],
-                                      # binned_data_dict_['rpv_l'],
-                                      binned_data_dict_['rec_length_l'],
-                                      # binned_data_dict_['max_non_zero_seq_len_l'],
-                                      # binned_data_dict_['non_zero_seq_len_5_count_l'],
-                                      # binned_data_dict_['non_zero_seq_len_10_count_l']
-                                      )).T,
-                           columns=['animal_id', 'session_id', 'unit_id', 'area_id', 'fr_hz',
-                                    'rec_length'])
-
-    for col in ['animal_id', 'session_id', 'unit_id', 'rec_length']:
-        bins_df[col] = bins_df[col].astype(int)
-
-    for col in ['fr_hz']:
-        bins_df[col] = bins_df[col].astype(float)
-
-    bins_df.to_pickle(output_filename)
+# def write_bins_stats_df(results_folder_, bin_size_suffix_, binned_data_dict_):
+#     output_filename = results_folder_ + 'bsl_sua_binned_' + bin_size_suffix_ \
+#                       + '_df.pkl'
+#     bins_df = pd.DataFrame(np.vstack((binned_data_dict_['animal_id_l'],
+#                                       binned_data_dict_['session_id_l'],
+#                                       binned_data_dict_['unit_id_l'],
+#                                       binned_data_dict_['area_id_l'],
+#                                       # binned_data_dict_['non_zero_bins_ratio_l'],
+#                                       binned_data_dict_['fr_l'],
+#                                       # binned_data_dict_['rpv_l'],
+#                                       binned_data_dict_['rec_length_l'],
+#                                       # binned_data_dict_['max_non_zero_seq_len_l'],
+#                                       # binned_data_dict_['non_zero_seq_len_5_count_l'],
+#                                       # binned_data_dict_['non_zero_seq_len_10_count_l']
+#                                       )).T,
+#                            columns=['animal_id', 'session_id', 'unit_id', 'area_id', 'fr_hz',
+#                                     'rec_length'])
+#
+#     for col in ['animal_id', 'session_id', 'unit_id', 'rec_length']:
+#         bins_df[col] = bins_df[col].astype(int)
+#
+#     for col in ['fr_hz']:
+#         bins_df[col] = bins_df[col].astype(float)
+#
+#     bins_df.to_pickle(output_filename)
 
 
 def write_binned_csv(csv_data_folder_, bin_size_suffix_, binned_data_dict_, verbose_=False):
