@@ -1,132 +1,286 @@
 """
-Functions to calculate autocorrelation function.
+Functions to calculate autocorrelation function:
+* using ACF equation,
+* using Pearson equation,
+* using iSTTC,
+* trail average ACF using Pearson correlation (see monkey papers),
+* trial average ACF using STTC.
 """
+import warnings
 
 import numpy as np
+from scipy.stats import pearsonr, ConstantInputWarning
 from statsmodels.tsa.stattools import acf
-import neo
-import quantities as pq
-from elephant.spike_train_correlation import spike_time_tiling_coefficient
 
 
-def calculate_acf_pearson(sua_binned_, n_lags_):
+def autocorr_pearsonr(signal_, lag_=1, verbose_=True):
     """
-    Calculate ACF using Pearson autocorrelation.
-
-    :param sua_binned_:
-    :param n_lags_:
+    Correlation between lag_ and lag_-1.
+    :param signal_:
+    :param lag_:
+    :param verbose_:
     :return:
     """
-    pass
+    if verbose_:
+        print('Calc for lag {}, input length {}'.format(lag_, signal_.shape))
+    with warnings.catch_warnings():
+        warnings.filterwarnings('error')
+        try:
+            r, p = pearsonr(signal_[lag_:], signal_[:-lag_])
+        except ConstantInputWarning as e:
+            print('ERROR: Pearson r can not be calculated for lag {}, error {}'.format(lag_, e))
+            r = np.nan
+    if verbose_:
+        print('Pearson correlation for lag {}: {}'.format(lag_, r))
+    return r
 
 
-def calculate_acf_isttc(sua_, n_lags_):
+def acf_pearsonr(signal_, n_lags_=2, verbose_=True):
     """
-    Calculate ACF using iSTTC autocorrelation.
-
-    :param sua_:
+    Autocorrelation using Pearson correlation.
+    :param signal_:
     :param n_lags_:
+    :param verbose_:
     :return:
     """
-    pass
+    acf = [1]
+    for i in range(1, n_lags_):
+        acf.append(autocorr_pearsonr(signal_, i, verbose_))
+    return np.array(acf)
 
 
-# copied from timescales project
-def calculate_acf_pearson_t(sua_binned_l_, n_lags_, duration_bins_=None):
+def acf_pearsonr_trial_avg(trials_time_series_2d, n_lags_, verbose_=True):
     """
-    Calculate ACF based on binned spiking data (spike counts).
-
-    :param sua_binned_l_: list
-    list of binned spike data together with meta info (elements of the list are rows from csv file)
-    every row: animal_id, age, unit_id, channel_id, non_zero_bins_ratio, fr, rpv, rec_length, bin1, ..., bin_n
-    first bin: idx 8
-    :param n_lags_: int, number of time lags to calculate ACF on
-    :param duration_bins_: int, recording portion to use for calculation, [0, duration_ms_]
-    :return: acf_dict: dict, dict with all animal/unit meta info and calculated ACF
+    Trial average autocorrelation using Pearson coefficient.
+    :param trials_time_series_2d:
+    :param n_lags_:
+    :param verbose_:
+    :return:
     """
-    acf_dict = {}
+    time_series_a = trials_time_series_2d[:, :n_lags_]
+    n_bins = time_series_a.shape[1]
+    if verbose_:
+        print('n_bins to use {}'.format(n_bins))
 
-    for row_idx, row in enumerate(sua_binned_l_):
-        binned_spike_train = row[8:]
+    acf_matrix = np.zeros((n_bins, n_bins))
+    for i in np.arange(n_bins - 1):
+        for j in np.arange(i + 1, n_bins):  # filling i-th row
+            with warnings.catch_warnings():
+                warnings.filterwarnings('error')
+                try:
+                    r, p = pearsonr(time_series_a[:, i], time_series_a[:, j])
+                    acf_matrix[i, j] = r
+                except ConstantInputWarning as e:
+                    print('ERROR: Pearson r can not be calculated for i={}, j={}, error {}'.format(i, j, e))
+                    acf_matrix[i, j] = np.nan
+    np.fill_diagonal(acf_matrix, 1)
 
-        if duration_bins_ is not None:
-            binned_spike_train = binned_spike_train[:duration_bins_+1]
-            print('Calculating for duration {} bins, last bin is at {}'.format(duration_bins_, len(binned_spike_train)))
+    acf_average = np.zeros((n_bins,))
+    for i in range(n_bins):
+        with warnings.catch_warnings():
+            warnings.filterwarnings('error')
+            try:
+                acf_average[i] = np.nanmean(np.diag(acf_matrix, k=i))
+            except RuntimeWarning as e:
+                print('ERROR: ACF average (mean) can not be calculated for lag={}'.format(i), e)
+                acf_average[i] = np.nan
 
-        acf_ = acf(binned_spike_train, nlags=n_lags_)
-        acf_dict[row_idx] = {'animal_id': row[0],
-                             'age': row[1],
-                             'unit_id': row[2],
-                             'channel_id': row[3],
-                             'non_zero_bin_ratio': row[4],
-                             'fr_hz': row[5],
-                             'rpv': row[6],
-                             'rec_length': row[7],
-                             'acf': acf_}
-    return acf_dict
+    return acf_matrix, acf_average
 
 
-# todo can be shorter
-def calculate_acf_sttc_t(sua_non_binned_l, n_lags_, resolution_ms_, fs_, duration_ms_=None):
+def run_t(spiketrain_, n_spikes_, dt_, t_start_, t_stop_):
     """
-    Calculate ACF based on non binned spiking data using sttc.
-
-    :param sua_non_binned_l: list
-    list of spike trains (elements of the list are rows from csv file)
-    every row: animal_id, age, unit_id, channel_id, bin1, ..., bin_n
-    first bin: idx 4
-    :param n_lags_: int, number of time lags to calculate ACF on
-    :param resolution_ms_: int, shift step
-    :param fs_: int, sampling frequency, Hz
-    :param duration_ms_: int, recording portion to use for calculation, [0, duration_ms_]
-    :return: acf_dict: dict, dict with all animal/unit meta info and calculated ACF
+    Calculate the proportion of the total recording time 'tiled' by spikes.
     """
-    acf_dict = {}
+    time_abs = 2 * n_spikes_ * dt_  # maximum possible time
 
-    shift_ms_l = np.linspace(resolution_ms_+1, resolution_ms_ * n_lags_ + 1, n_lags_).astype(int)
+    if n_spikes_ == 1:  # for just one spike in train
+        if spiketrain_[0] - t_start_ < dt_:
+            time_abs = time_abs - dt_ + spiketrain_[0] - t_start_
+        elif spiketrain_[0] + dt_ > t_stop_:
+            time_abs = time_abs - dt_ - spiketrain_[0] + t_stop_
 
-    for row_idx, row in enumerate(sua_non_binned_l):
-        print('Processing animal_id {}, unit_id {},  row_idx {}'.format(row[0], row[2], row_idx))
-        spike_train = np.asarray(row[4:]).astype(int)
-        spike_train_ms = spike_train / fs_ * 1000
-        spike_train_ms_int = spike_train_ms.astype(int)
+    else:  # if more than one spike in train
+        diff = np.diff(spiketrain_)
+        idx = np.where(diff < (2 * dt_))[0]
+        idx_len = len(idx)
+        time_abs = time_abs - 2 * idx_len * dt_ + diff[idx].sum()
 
-        if duration_ms_ is not None:
-            spike_train_ms_int = spike_train_ms_int[spike_train_ms_int <= duration_ms_]
-            spike_train_bin = np.zeros(duration_ms_ + 1)
-            print('Calculating for duration {} ms, last spike is at {} ms'.
-                  format(duration_ms_, spike_train_ms_int[-1] if len(spike_train_ms_int) > 0 else 'none'))
-        else:
-            spike_train_bin = np.zeros(spike_train_ms_int[-1] + 1)
+        # todo this part and the same part above
+        if (spiketrain_[0] - t_start_) < dt_:
+            time_abs = time_abs + spiketrain_[0] - dt_ - t_start_
+        if (t_stop_ - spiketrain_[n_spikes_ - 1]) < dt_:
+            time_abs = time_abs - spiketrain_[-1] - dt_ + t_stop_
 
-        spike_train_bin[spike_train_ms_int] = 1
+    time_prop = (time_abs / (t_stop_ - t_start_))  # .item()
 
-        sttc_self_l = []
+    return time_abs, time_prop
 
-        # correlate with itself
-        spike_train_neo = neo.SpikeTrain(spike_train_ms_int, units='ms', t_start=0, t_stop=len(spike_train_bin))
-        sttc_no_shift = spike_time_tiling_coefficient(spike_train_neo, spike_train_neo, dt=resolution_ms_ * pq.ms)
-        sttc_self_l.append(sttc_no_shift)
 
-        # correlated shifted signal
-        for shift_ms in shift_ms_l:
-            spike_train_bin1 = spike_train_bin[:-1 - shift_ms + 1]
-            spike_train_bin2 = spike_train_bin[shift_ms:]
+def run_p(spiketrain_1_, spiketrain_2_, n_spikes_1_, n_spikes_2_, dt_):
+    """
+    Check every spike in train 1 to see if there's a spike in train 2 within dt
+    """
+    n_tiled_spikes = 0
+    j = 0
+    for i in range(n_spikes_1_):
+        k = 0
+        while j < n_spikes_2_:  # don't need to search all j each iteration
+            if np.abs(spiketrain_1_[i] - spiketrain_2_[j]) <= dt_:
+                n_tiled_spikes = n_tiled_spikes + 1
+                k += 1
+                break
+            elif spiketrain_2_[j] > spiketrain_1_[i]:
+                break
+            else:
+                j = j + 1
+    return n_tiled_spikes
 
-            spike_train_bin1_idx = np.nonzero(spike_train_bin1)[0]
-            spike_train_bin2_idx = np.nonzero(spike_train_bin2)[0]
 
-            spike_train_neo_1 = neo.SpikeTrain(spike_train_bin1_idx, units='ms', t_start=0, t_stop=len(spike_train_bin1))
-            spike_train_neo_2 = neo.SpikeTrain(spike_train_bin2_idx, units='ms', t_start=0, t_stop=len(spike_train_bin2))
+def calc_sttc(spiketrain_1_l_, spiketrain_2_l_, t_start_, t_stop_, dt_, verbose_=True):
+    n_a = len(spiketrain_1_l_)
+    n_b = len(spiketrain_2_l_)
 
-            sttc_self = spike_time_tiling_coefficient(spike_train_neo_1, spike_train_neo_2, dt=resolution_ms_ * pq.ms)
-            sttc_self_l.append(sttc_self)
+    if n_a == 0 or n_b == 0:
+        sttc = 0
+    else:
+        time_a, t_a = run_t(spiketrain_1_l_, n_a, dt_, t_start_, t_stop_)
+        # print('time_a {}, t_a {}'.format(time_a, t_a))
 
-        acf_ = np.asarray(sttc_self_l)
-        acf_dict[row_idx] = {'animal_id': row[0],
-                             'age': row[1],
-                             'unit_id': row[2],
-                             'channel_id': row[3],
-                             'acf': acf_}
+        time_b, t_b = run_t(spiketrain_2_l_, n_b, dt_, t_start_, t_stop_)
+        # print('time_b {}, t_b {}'.format(time_b, t_b))
 
-    return acf_dict
+        p_a_count = run_p(spiketrain_1_l_, spiketrain_2_l_, n_a, n_b, dt_)
+        p_a = p_a_count / float(n_a)
+        # print('p_a_count {}, p_a {}'.format(p_a_count, p_a))
+
+        p_b_count = run_p(spiketrain_2_l_, spiketrain_1_l_, n_b, n_a, dt_)
+        p_b = p_b_count / float(n_b)
+        # print('p_b_count {}, p_b {}'.format(p_b_count, p_b))
+
+        sttc = 0.5 * (p_a - t_b) / (1 - p_a * t_b) + 0.5 * (p_b - t_a) / (1 - p_b * t_a)
+        if verbose_:
+            print('STTC : {}'.format(sttc))
+    return sttc
+
+
+def get_lag_arrays(spike_train_l_, lag_1_idx_, lag_2_idx_, lag_shift_, zero_padding_len_):
+    """
+
+    :param spike_train_l_: list of spike trains, every element of the list contains spikes from 1 trial, length of the
+    list is equal to the number of trails
+    :param lag_1_idx_:
+    :param lag_2_idx_:
+    :param lag_shift_:
+    :param zero_padding_len_:
+    :return:
+    """
+    # select spikes for lags
+    first_lag_l = []
+    second_lag_l = []
+    for i in range(len(spike_train_l_)):  # for all trials
+        spike_train = spike_train_l_[i]
+        first_lag = spike_train[
+            (spike_train[:] > lag_1_idx_ * lag_shift_) & (spike_train[:] <= lag_1_idx_ * lag_shift_ + lag_shift_)]
+        first_lag_l.append(first_lag)
+
+        second_lag = spike_train[
+            (spike_train[:] > lag_2_idx_ * lag_shift_) & (spike_train[:] <= lag_2_idx_ * lag_shift_ + lag_shift_)]
+        second_lag_l.append(second_lag)
+
+    # add padding zeros
+    first_lag_l_spaced = []
+    for i in range(0, len(spike_train_l_)):
+        first_lag_l_spaced.append(first_lag_l[i] + i * zero_padding_len_)
+
+    second_lag_l_spaced = []
+    for i in range(len(spike_train_l_)):
+        second_lag_l_spaced.append(second_lag_l[i] + i * zero_padding_len_)
+
+    # reshape in 1d arrays of spike times
+    lag1_l = []
+    for i in range(0, len(spike_train_l_)):
+        if len(first_lag_l_spaced[i]) > 0:
+            # print(first_lag_l_spaced[i])
+            if len(first_lag_l_spaced[i]) == 1:
+                lag1_l.append(np.squeeze(first_lag_l_spaced[i]).tolist())
+            else:
+                n_spikes = len(first_lag_l_spaced[i])
+                for j in range(n_spikes):
+                    lag1_l.append(np.squeeze(first_lag_l_spaced[i][j]).tolist())
+
+    lag2_l = []
+    for i in range(len(spike_train_l_)):
+        if len(second_lag_l_spaced[i]) > 0:
+            # print(second_lag_l_spaced[i])
+            if len(second_lag_l_spaced[i]) == 1:
+                lag2_l.append(np.squeeze(second_lag_l_spaced[i]).tolist())
+            else:
+                n_spikes = len(second_lag_l_spaced[i])
+                for j in range(n_spikes):
+                    lag2_l.append(np.squeeze(second_lag_l_spaced[i][j]).tolist())
+
+    return lag1_l, lag2_l
+
+
+def acf_sttc_trial_avg(spike_train_l_, lag_shift_=50, zero_padding_len_=150, fs_=1000, sttc_dt_=25, verbose_=True):
+    """
+    Trial average autocorrelation using STTC.
+    :param sttc_dt_:
+    :param spike_train_l_: list of spike trains, every element of the list contains spikes from 1 trial, length of the
+    list is equal to the number of trails
+    :param lag_shift_:
+    :param zero_padding_len_:
+    :param fs_:
+    :param verbose_:
+    :return:
+    """
+    #lag_shift = 50
+    #padding = 150
+
+    n_bins = int(fs_ / lag_shift_)
+    if verbose_:
+        print('n_bins to use {}'.format(n_bins))
+    acf_matrix = np.zeros((n_bins, n_bins))
+
+    t_start = 0
+    t_stop = (len(spike_train_l_) - 1) * zero_padding_len_ + lag_shift_
+    if verbose_:
+        print(t_start, t_stop, len(spike_train_l_))
+
+    for i in np.arange(n_bins - 1):
+        for j in np.arange(i + 1, n_bins):  # filling i-th row
+            # print(i,j)
+            lag_1_spikes_l, lag_2_spikes_l = get_lag_arrays(spike_train_l_, i, j,
+                                                            lag_shift_=lag_shift_, zero_padding_len_=zero_padding_len_)
+            # print(lag_1_spikes_l)
+            # print(lag_2_spikes_l)
+            l1_aligned = [spike - lag_shift_ * i for spike in lag_1_spikes_l]
+            l2_aligned = [spike - lag_shift_ * j for spike in lag_2_spikes_l]
+            # t_start = i*lag_shift
+            # t_stop = (len(v)-1)*padding + (j+1)*lag_shift
+            # print(t_start, t_stop, t_stop-t_start)
+            sttc_lag = calc_sttc(l1_aligned, l2_aligned, t_start, t_stop, sttc_dt_)
+            acf_matrix[i, j] = sttc_lag
+    np.fill_diagonal(acf_matrix, 1)
+
+    acf_average = np.zeros((n_bins,))
+    for i in range(n_bins):
+        acf_average[i] = np.nanmean(np.diag(acf_matrix, k=i))
+
+    return acf_matrix, acf_average
+
+
+# todo
+def acf_sttc(signal_, n_lags_=2, verbose_=True):
+    """
+    Autocorrelation using STTC.
+    :param signal_:
+    :param n_lags_:
+    :param verbose_:
+    :return:
+    """
+    acf = [1]
+#    for i in range(1, n_lags_):
+        # acf.append(autocorr_pearsonr(signal_, i, verbose_))
+    return np.array(acf)
