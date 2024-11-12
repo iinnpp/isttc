@@ -158,7 +158,14 @@ def calc_sttc(spiketrain_1_l_, spiketrain_2_l_, t_start_, t_stop_, dt_, verbose_
         p_b = p_b_count / float(n_b)
         # print('p_b_count {}, p_b {}'.format(p_b_count, p_b))
 
-        sttc = 0.5 * (p_a - t_b) / (1 - p_a * t_b) + 0.5 * (p_b - t_a) / (1 - p_b * t_a)
+        if t_a * p_b == 1 and t_b * p_a == 1:
+            sttc = 1
+        elif t_a * p_b == 1:
+            sttc = 0.5 * (p_a - t_b) / (1 - p_a * t_b) + 0.5
+        elif t_b * p_a == 1:
+            sttc = 0.5 + 0.5 * (p_b - t_a) / (1 - p_b * t_a)
+        else:
+            sttc = 0.5 * (p_a - t_b) / (1 - p_a * t_b) + 0.5 * (p_b - t_a) / (1 - p_b * t_a)
         if verbose_:
             print('STTC : {}'.format(sttc))
     return sttc
@@ -271,16 +278,51 @@ def acf_sttc_trial_avg(spike_train_l_, lag_shift_=50, zero_padding_len_=150, fs_
     return acf_matrix, acf_average
 
 
-# todo
-def acf_sttc(signal_, n_lags_=2, verbose_=True):
-    """
-    Autocorrelation using STTC.
-    :param signal_:
-    :param n_lags_:
-    :param verbose_:
-    :return:
-    """
-    acf = [1]
-#    for i in range(1, n_lags_):
-        # acf.append(autocorr_pearsonr(signal_, i, verbose_))
-    return np.array(acf)
+def acf_sttc_concat(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=True):
+    shift_ms_l = np.linspace(lag_shift_, lag_shift_ * (n_lags_ - 1), n_lags_ - 1).astype(int)
+    if verbose_:
+        print('shift_ms_l {}'.format(shift_ms_l))
+
+    acf_l = []
+    sttc_no_shift = calc_sttc(signal_, signal_, t_start_=0, t_stop_=signal_length_, dt_=sttc_dt_)
+    acf_l.append(sttc_no_shift)
+
+    # correlated shifted signal
+    for shift_ms in shift_ms_l:
+        spike_1 = signal_[signal_ >= shift_ms]
+        spike_2 = signal_[signal_ < n_lags_ * lag_shift_ - shift_ms]
+        # align, only 1st
+        spike_1_aligned = [spike - shift_ms for spike in spike_1]
+        if verbose_:
+            print('spike_1 {}, spike_2 {}'.format(spike_1.shape, spike_2.shape))
+
+        isttc = calc_sttc(spike_1_aligned, spike_2, t_start_=0, t_stop_=signal_length_ - shift_ms, dt_=sttc_dt_)
+        # print(isttc)
+        acf_l.append(isttc)
+
+    return acf_l
+
+
+def acf_sttc(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=True):
+    shift_ms_l = np.linspace(lag_shift_, lag_shift_ * (n_lags_ - 1), n_lags_ - 1).astype(int)
+    if verbose_:
+        print('shift_ms_l {}'.format(shift_ms_l))
+
+    acf_l = []
+    sttc_no_shift = calc_sttc(signal_, signal_, t_start_=0, t_stop_=signal_length_, dt_=sttc_dt_)
+    acf_l.append(sttc_no_shift)
+
+    # correlated shifted signal
+    for shift_ms in shift_ms_l:
+        spike_1 = signal_[signal_ >= shift_ms]
+        spike_2 = signal_[signal_ < n_lags_ * lag_shift_ - shift_ms]
+        # align, only 1st
+        spike_1_aligned = [spike - shift_ms for spike in spike_1]
+        if verbose_:
+            print('spike_1 {}, spike_2 {}'.format(spike_1.shape, spike_2.shape))
+
+        isttc = calc_sttc(spike_1_aligned, spike_2, t_start_=0, t_stop_=signal_length_ - shift_ms, dt_=sttc_dt_)
+        # print(isttc)
+        acf_l.append(isttc)
+
+    return acf_l
