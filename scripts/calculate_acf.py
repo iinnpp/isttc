@@ -315,7 +315,8 @@ def acf_sttc(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=Tr
     # correlated shifted signal
     for shift_ms in shift_ms_l:
         spike_1 = signal_[signal_ >= shift_ms]
-        spike_2 = signal_[signal_ < n_lags_ * lag_shift_ - shift_ms]
+        spike_2 = signal_[signal_ < signal_length_ - shift_ms]
+        # spike_2 = signal_[signal_ < n_lags_ * lag_shift_ - shift_ms]
         # align, only 1st
         spike_1_aligned = [spike - shift_ms for spike in spike_1]
         if verbose_:
