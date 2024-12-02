@@ -15,11 +15,11 @@ from statsmodels.tsa.stattools import acf
 
 def autocorr_pearsonr(signal_, lag_=1, verbose_=True):
     """
-    Correlation between lag_ and lag_-1.
-    :param signal_:
-    :param lag_:
-    :param verbose_:
-    :return:
+    Correlation between lag_ and lag_-1 using Pearson correlation coefficient.
+    :param signal_: numeric, 1d array.
+    :param lag_: int, lag to calculate correlation
+    :param verbose_: bool, default False, diagnostic printout if True, silent otherwise
+    :return: Pearson correlation coefficient, np.nan in case of error
     """
     if verbose_:
         print('Calc for lag {}, input length {}'.format(lag_, signal_.shape))
@@ -37,16 +37,134 @@ def autocorr_pearsonr(signal_, lag_=1, verbose_=True):
 
 def acf_pearsonr(signal_, n_lags_=2, verbose_=True):
     """
-    Autocorrelation using Pearson correlation.
+    Autocorrelation function using Pearson correlation coefficient.
+    If n_lags_ >= signal_length then n_lags_ = signal_length-1. For example, is the signal_len = 20 then for lag 20
+    there are no values to correlate and for the lag 19 there is only 1 value per array. In this case Pearson
+    is NaN because denominator is 0.
+    ACF len is = n_lags_ + 1 for signal_length > n_lags_ + 1 (as in acf from statsmodels.tsa.stattools) otherwise
+    ACF len is = n_lags_(n_lags_ == len(signal_) - 1) or ACF len is = n_lags_-1 (n_lags_ >= len(signal_)).
+    :param signal_: numeric, 1d array.
+    :param n_lags_: int, number of lags.
+    :param verbose_: bool, default False, diagnostic printout if True, silent otherwise
+    :return: 1d array, numeric. Array len is = n_lags_ + 1 for
+    """
+    acf_result = [1]
+    if n_lags_ >= len(signal_):
+        n_lags = n_lags_ - 2
+        if verbose_:
+            print('n_lags ({}) is >= signal length ({}). Setting n_lags to {}...'
+                  .format(n_lags_, len(signal_), n_lags))
+    elif n_lags_ == len(signal_) - 1:
+        # case with only 1 value per array
+        n_lags = n_lags_ - 1
+        if verbose_:
+            print('n_lags ({}) is == signal length ({}) - 1. Setting n_lags to {}...'
+                  .format(n_lags_, len(signal_), n_lags))
+    else:
+        n_lags = n_lags_
+
+    for i in range(1, n_lags+1):
+        acf_result.append(autocorr_pearsonr(signal_, i, verbose_))
+    return np.array(acf_result)
+
+
+def my_autocorr_pearsonr(signal_, lag_=1, verbose_=True):
+    """
+    Same as autocorr_pearsonr but without using pearsonr function. Just a sanity check.
+    :param signal_:
+    :param lag_:
+    :param verbose_:
+    :return:
+    """
+    if verbose_:
+        print('Calc for lag {}, input length {}'.format(lag_, signal_.shape))
+    denominator = np.sqrt(
+        sum((signal_[lag_:] - np.mean(signal_[lag_:])) ** 2) * sum((signal_[:-lag_] - np.mean(signal_[:-lag_])) ** 2))
+    numerator_p1 = signal_[lag_:] - np.mean(signal_[lag_:])
+    numerator_p2 = signal_[:-lag_] - np.mean(signal_[:-lag_])
+    if verbose_:
+        print('shape numerator_p1 {}, numerator_p2 {}'.format(numerator_p1.shape, numerator_p2.shape))
+    numerator = sum(numerator_p1 * numerator_p2)
+    ac_lag = numerator / denominator
+    if verbose_:
+        print('acf_lag {}'.format(ac_lag))
+    return ac_lag
+
+
+def my_acf_pearsonr(signal_, n_lags_=2, verbose_=True):
+    """
+    Same as acf_pearsonr but without using pearsonr function. Just a sanity check.
     :param signal_:
     :param n_lags_:
     :param verbose_:
     :return:
     """
-    acf = [1]
-    for i in range(1, n_lags_):
-        acf.append(autocorr_pearsonr(signal_, i, verbose_))
-    return np.array(acf)
+    acf_result = [1]
+    if n_lags_ >= len(signal_):
+        n_lags = n_lags_ - 2
+        if verbose_:
+            print('n_lags ({}) is >= signal length ({}). Setting n_lags to {}...'
+                  .format(n_lags_, len(signal_), n_lags))
+    elif n_lags_ == len(signal_) - 1:
+        # case with only 1 value per array
+        n_lags = n_lags_ - 1
+        if verbose_:
+            print('n_lags ({}) is == signal length ({}) - 1. Setting n_lags to {}...'
+                  .format(n_lags_, len(signal_), n_lags))
+    else:
+        n_lags = n_lags_
+
+    for i in range(1, n_lags+1):
+        acf_result.append(my_autocorr_pearsonr(signal_, i, verbose_))
+    return np.array(acf_result)
+
+
+def my_autocorr(signal_, lag_=1, verbose_=True):
+    """
+    Same as acf (for 1 lag) but without using acf function. Just a sanity check.
+    :param signal_:
+    :param lag_:
+    :param verbose_:
+    :return:
+    """
+    if verbose_:
+        print('Calc for lag {}, input length {}'.format(lag_, signal_.shape))
+
+    signal_mean = np.mean(signal_)
+    denominator = sum((signal_ - signal_mean) ** 2)
+    if verbose_:
+        print('y_mean = {}, denominator = {}'.format(signal_mean, denominator))
+    numerator_p1 = signal_[lag_:] - signal_mean
+    numerator_p2 = signal_[:-lag_] - signal_mean
+    if verbose_:
+        print('shape numerator_p1 {}, numerator_p2 {}'.format(numerator_p1.shape, numerator_p2.shape))
+    numerator = sum(numerator_p1 * numerator_p2)
+    ac_lag = numerator / denominator
+    if verbose_:
+        print('acf_lag {}'.format(ac_lag))
+    return ac_lag
+
+
+def my_acf(signal_, n_lags_=2, verbose_=True):
+    """
+    Same as acf but without using acf function. Just a sanity check.
+    :param signal_:
+    :param n_lags_:
+    :param verbose_:
+    :return:
+    """
+    acf_result = [1]
+    if n_lags_ >= len(signal_):
+        n_lags = n_lags_ - 1
+        if verbose_:
+            print('n_lags ({}) is >= signal length ({}). Setting n_lags to {}...'
+                  .format(n_lags_, len(signal_), n_lags))
+    else:
+        n_lags = n_lags_
+
+    for i in range(1, (n_lags+1)):
+        acf_result.append(my_autocorr(signal_, i, verbose_))
+    return np.array(acf_result)
 
 
 def acf_pearsonr_trial_avg(trials_time_series_2d, n_lags_, verbose_=True):
@@ -88,7 +206,7 @@ def acf_pearsonr_trial_avg(trials_time_series_2d, n_lags_, verbose_=True):
     return acf_matrix, acf_average
 
 
-def run_t(spiketrain_, n_spikes_, dt_, t_start_, t_stop_):
+def sttc_calculate_t(spiketrain_, n_spikes_, dt_, t_start_, t_stop_):
     """
     Calculate the proportion of the total recording time 'tiled' by spikes.
     """
@@ -117,7 +235,7 @@ def run_t(spiketrain_, n_spikes_, dt_, t_start_, t_stop_):
     return time_abs, time_prop
 
 
-def run_p(spiketrain_1_, spiketrain_2_, n_spikes_1_, n_spikes_2_, dt_):
+def sttc_calculate_p(spiketrain_1_, spiketrain_2_, n_spikes_1_, n_spikes_2_, dt_):
     """
     Check every spike in train 1 to see if there's a spike in train 2 within dt
     """
@@ -137,38 +255,74 @@ def run_p(spiketrain_1_, spiketrain_2_, n_spikes_1_, n_spikes_2_, dt_):
     return n_tiled_spikes
 
 
-def calc_sttc(spiketrain_1_l_, spiketrain_2_l_, t_start_, t_stop_, dt_, verbose_=True):
+def sttc(spiketrain_1_l_, spiketrain_2_l_, t_start_, t_stop_, dt_, verbose_=True):
     n_a = len(spiketrain_1_l_)
     n_b = len(spiketrain_2_l_)
 
     if n_a == 0 or n_b == 0:
-        sttc = 0
+        sttc_result = 0
     else:
-        time_a, t_a = run_t(spiketrain_1_l_, n_a, dt_, t_start_, t_stop_)
+        time_a, t_a = sttc_calculate_t(spiketrain_1_l_, n_a, dt_, t_start_, t_stop_)
         # print('time_a {}, t_a {}'.format(time_a, t_a))
 
-        time_b, t_b = run_t(spiketrain_2_l_, n_b, dt_, t_start_, t_stop_)
+        time_b, t_b = sttc_calculate_t(spiketrain_2_l_, n_b, dt_, t_start_, t_stop_)
         # print('time_b {}, t_b {}'.format(time_b, t_b))
 
-        p_a_count = run_p(spiketrain_1_l_, spiketrain_2_l_, n_a, n_b, dt_)
+        p_a_count = sttc_calculate_p(spiketrain_1_l_, spiketrain_2_l_, n_a, n_b, dt_)
         p_a = p_a_count / float(n_a)
         # print('p_a_count {}, p_a {}'.format(p_a_count, p_a))
 
-        p_b_count = run_p(spiketrain_2_l_, spiketrain_1_l_, n_b, n_a, dt_)
+        p_b_count = sttc_calculate_p(spiketrain_2_l_, spiketrain_1_l_, n_b, n_a, dt_)
         p_b = p_b_count / float(n_b)
         # print('p_b_count {}, p_b {}'.format(p_b_count, p_b))
 
         if t_a * p_b == 1 and t_b * p_a == 1:
-            sttc = 1
+            sttc_result = 1
         elif t_a * p_b == 1:
-            sttc = 0.5 * (p_a - t_b) / (1 - p_a * t_b) + 0.5
+            sttc_result = 0.5 * (p_a - t_b) / (1 - p_a * t_b) + 0.5
         elif t_b * p_a == 1:
-            sttc = 0.5 + 0.5 * (p_b - t_a) / (1 - p_b * t_a)
+            sttc_result = 0.5 + 0.5 * (p_b - t_a) / (1 - p_b * t_a)
         else:
-            sttc = 0.5 * (p_a - t_b) / (1 - p_a * t_b) + 0.5 * (p_b - t_a) / (1 - p_b * t_a)
+            sttc_result = 0.5 * (p_a - t_b) / (1 - p_a * t_b) + 0.5 * (p_b - t_a) / (1 - p_b * t_a)
         if verbose_:
-            print('STTC : {}'.format(sttc))
-    return sttc
+            print('STTC : {}'.format(sttc_result))
+    return sttc_result
+
+
+# todo behavior with signal len < n_lags (want to have it as in acf)
+def acf_sttc(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=True):
+    """
+    :param signal_:
+    :param n_lags_:
+    :param lag_shift_:
+    :param sttc_dt_:
+    :param signal_length_:
+    :param verbose_:
+    :return:
+    """
+    shift_ms_l = np.linspace(lag_shift_, lag_shift_ * (n_lags_ - 1), n_lags_ - 1).astype(int)
+    if verbose_:
+        print('shift_ms_l {}'.format(shift_ms_l))
+
+    acf_l = []
+    sttc_no_shift = sttc(signal_, signal_, t_start_=0, t_stop_=signal_length_, dt_=sttc_dt_)
+    acf_l.append(sttc_no_shift)
+
+    # correlated shifted signal
+    for shift_ms in shift_ms_l:
+        spike_1 = signal_[signal_ >= shift_ms]
+        spike_2 = signal_[signal_ < signal_length_ - shift_ms]
+        # spike_2 = signal_[signal_ < n_lags_ * lag_shift_ - shift_ms]
+        # align, only 1st
+        spike_1_aligned = [spike - shift_ms for spike in spike_1]
+        if verbose_:
+            print('spike_1 {}, spike_2 {}'.format(spike_1.shape, spike_2.shape))
+
+        isttc = sttc(spike_1_aligned, spike_2, t_start_=0, t_stop_=signal_length_ - shift_ms, dt_=sttc_dt_, verbose_=verbose_)
+        # print(isttc)
+        acf_l.append(isttc)
+
+    return acf_l
 
 
 def get_lag_arrays(spike_train_l_, lag_1_idx_, lag_2_idx_, lag_shift_, zero_padding_len_):
@@ -267,7 +421,7 @@ def acf_sttc_trial_avg(spike_train_l_, lag_shift_=50, zero_padding_len_=150, fs_
             # t_start = i*lag_shift
             # t_stop = (len(v)-1)*padding + (j+1)*lag_shift
             # print(t_start, t_stop, t_stop-t_start)
-            sttc_lag = calc_sttc(l1_aligned, l2_aligned, t_start, t_stop, sttc_dt_)
+            sttc_lag = sttc(l1_aligned, l2_aligned, t_start, t_stop, sttc_dt_)
             acf_matrix[i, j] = sttc_lag
     np.fill_diagonal(acf_matrix, 1)
 
@@ -284,7 +438,7 @@ def acf_sttc_concat(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verb
         print('shift_ms_l {}'.format(shift_ms_l))
 
     acf_l = []
-    sttc_no_shift = calc_sttc(signal_, signal_, t_start_=0, t_stop_=signal_length_, dt_=sttc_dt_)
+    sttc_no_shift = sttc(signal_, signal_, t_start_=0, t_stop_=signal_length_, dt_=sttc_dt_)
     acf_l.append(sttc_no_shift)
 
     # correlated shifted signal
@@ -296,34 +450,9 @@ def acf_sttc_concat(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verb
         if verbose_:
             print('spike_1 {}, spike_2 {}'.format(spike_1.shape, spike_2.shape))
 
-        isttc = calc_sttc(spike_1_aligned, spike_2, t_start_=0, t_stop_=signal_length_ - shift_ms, dt_=sttc_dt_)
+        isttc = sttc(spike_1_aligned, spike_2, t_start_=0, t_stop_=signal_length_ - shift_ms, dt_=sttc_dt_)
         # print(isttc)
         acf_l.append(isttc)
 
     return acf_l
 
-
-def acf_sttc(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=True):
-    shift_ms_l = np.linspace(lag_shift_, lag_shift_ * (n_lags_ - 1), n_lags_ - 1).astype(int)
-    if verbose_:
-        print('shift_ms_l {}'.format(shift_ms_l))
-
-    acf_l = []
-    sttc_no_shift = calc_sttc(signal_, signal_, t_start_=0, t_stop_=signal_length_, dt_=sttc_dt_)
-    acf_l.append(sttc_no_shift)
-
-    # correlated shifted signal
-    for shift_ms in shift_ms_l:
-        spike_1 = signal_[signal_ >= shift_ms]
-        spike_2 = signal_[signal_ < signal_length_ - shift_ms]
-        # spike_2 = signal_[signal_ < n_lags_ * lag_shift_ - shift_ms]
-        # align, only 1st
-        spike_1_aligned = [spike - shift_ms for spike in spike_1]
-        if verbose_:
-            print('spike_1 {}, spike_2 {}'.format(spike_1.shape, spike_2.shape))
-
-        isttc = calc_sttc(spike_1_aligned, spike_2, t_start_=0, t_stop_=signal_length_ - shift_ms, dt_=sttc_dt_)
-        # print(isttc)
-        acf_l.append(isttc)
-
-    return acf_l
