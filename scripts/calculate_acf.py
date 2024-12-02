@@ -289,9 +289,9 @@ def sttc(spiketrain_1_l_, spiketrain_2_l_, t_start_, t_stop_, dt_, verbose_=True
     return sttc_result
 
 
-# todo behavior with signal len < n_lags (want to have it as in acf)
 def acf_sttc(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=True):
     """
+    Autocorrelation function using STTC.
     :param signal_:
     :param n_lags_:
     :param lag_shift_:
@@ -300,7 +300,10 @@ def acf_sttc(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=Tr
     :param verbose_:
     :return:
     """
-    shift_ms_l = np.linspace(lag_shift_, lag_shift_ * (n_lags_ - 1), n_lags_ - 1).astype(int)
+    if lag_shift_ * n_lags_ == signal_length_:
+        shift_ms_l = np.linspace(lag_shift_, lag_shift_ * (n_lags_ - 1), n_lags_ - 1).astype(int)
+    else:
+        shift_ms_l = np.linspace(lag_shift_, lag_shift_ * n_lags_, n_lags_).astype(int)
     if verbose_:
         print('shift_ms_l {}'.format(shift_ms_l))
 

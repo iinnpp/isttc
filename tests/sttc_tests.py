@@ -19,7 +19,10 @@ def calc_sttc_elephant(spike_train_1, spike_train_2, t_start_, t_stop_, dt_):
 
 
 def acf_sttc_elephant(spike_train, n_lags_, acf_lag_ms_, sttc_lag_ms_, rec_length_, verbose=True):
-    shift_ms_l = np.linspace(acf_lag_ms_, acf_lag_ms_ * (n_lags_ - 1), n_lags_ - 1).astype(int)
+    if acf_lag_ms_ * n_lags_ == rec_length_:
+        shift_ms_l = np.linspace(acf_lag_ms_, acf_lag_ms_ * (n_lags_ - 1), n_lags_ - 1).astype(int)
+    else:
+        shift_ms_l = np.linspace(acf_lag_ms_, acf_lag_ms_ * n_lags_, n_lags_).astype(int)
     if verbose:
         print('shift_ms_l {}'.format(shift_ms_l))
 
@@ -89,7 +92,7 @@ if __name__ == "__main__":
 
     print('Running 2nd test: my sttc-acf vs elephant sttc-acf:...')
     # calculate acf
-    n_lags = 20
+    n_lags = 10
     for i in range(n_trains):
         print('#############')
         print('i {}'.format(i))
