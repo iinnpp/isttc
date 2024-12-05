@@ -470,9 +470,13 @@ def acf_sttc_trial_avg(spike_train_l_, lag_shift_, zero_padding_len_, fs_, sttc_
     return acf_matrix, acf_average
 
 
-def acf_sttc_trail_concat(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, trial_len_, zero_padding_len_, verbose_=True):
+def deprecated_acf_sttc_trail_concat(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, trial_len_, zero_padding_len_,
+                                     verbose_=True):
     """
-    Autocorrelation calculated on concatenated trials. Trials are concatenated with zero padding.
+    Autocorrelation calculated on concatenated trials. Trials are concatenated with zero padding. For the time lags
+    the whole signal is shifted.
+    T term (absolute time) is calculated for trails, summed up and divided by the signal len(sum of trail len
+    without zero padding). T is the same for all time lags (calculated on not shifted signal).
     :param trial_len_:
     :param verbose_:
     :param zero_padding_len_:
@@ -519,7 +523,7 @@ def acf_sttc_trail_concat(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, trial_l
         print('Generated lag shifts: {}'.format(shift_ms_l))
 
     acf_l = []
-    sttc_no_shift = sttc_fixed_2t(spike_train_concat, spike_train_concat, t_start_=0, t_stop_=signal_len_concat,
+    sttc_no_shift = sttc_fixed_2t(spike_train_concat, spike_train_concat,
                                  dt_=sttc_dt_, t_a_=time_proc_sum, t_b_=time_proc_sum, verbose_=verbose_)
     acf_l.append(sttc_no_shift)
 
@@ -531,16 +535,19 @@ def acf_sttc_trail_concat(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, trial_l
         spike_1_aligned = [spike - shift_ms for spike in spike_1]
         if verbose_:
             print('spike_1 {}, spike_2 {}'.format(spike_1.shape, spike_2.shape))
-        isttc = sttc_fixed_2t(spike_1_aligned, spike_2, t_start_=0, t_stop_=signal_len_concat - shift_ms, dt_=sttc_dt_,
+        isttc = sttc_fixed_2t(spike_1_aligned, spike_2, dt_=sttc_dt_,
                              t_a_=time_proc_sum, t_b_=time_proc_sum, verbose_=verbose_)
         acf_l.append(isttc)
 
     return acf_l
 
 
-def acf_sttc_trail_concat_v2(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, trial_len_, zero_padding_len_, verbose_=True):
+def deprecated_acf_sttc_trail_concat_v2(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, trial_len_, zero_padding_len_, verbose_=True):
     """
-    Autocorrelation calculated on concatenated trials. Trials are concatenated with zero padding.
+    Autocorrelation calculated on concatenated trials. Trials are concatenated with zero padding. For the time lags
+    the trails are shifted and then concatenated again with zero padding.
+    T term (absolute time) is calculated for trails, summed up and divided by the signal len(sum of trail len
+    without zero padding). T is the same for all time lags (calculated on not shifted signal).
     :param trial_len_:
     :param verbose_:
     :param zero_padding_len_:
@@ -587,7 +594,7 @@ def acf_sttc_trail_concat_v2(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, tria
         print('Generated lag shifts: {}'.format(shift_ms_l))
 
     acf_l = []
-    sttc_no_shift = sttc_fixed_2t(spike_train_concat, spike_train_concat, t_start_=0, t_stop_=signal_len_concat,
+    sttc_no_shift = sttc_fixed_2t(spike_train_concat, spike_train_concat,
                                  dt_=sttc_dt_, t_a_=time_proc_sum, t_b_=time_proc_sum, verbose_=verbose_)
     acf_l.append(sttc_no_shift)
 
@@ -614,54 +621,55 @@ def acf_sttc_trail_concat_v2(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, tria
             print('spike_1 {}, spike_2 {}'.format(spike_trial_1_concat.shape, spike_trial_2_concat.shape))
             print(spike_trial_1_concat)
             print(spike_trial_2_concat)
-        isttc = sttc_fixed_2t(spike_trial_1_concat, spike_trial_2_concat, t_start_=0,
-                             t_stop_=signal_len_concat - shift_ms*len(spike_train_l_), dt_=sttc_dt_,
+        isttc = sttc_fixed_2t(spike_trial_1_concat, spike_trial_2_concat, dt_=sttc_dt_,
                              t_a_=time_proc_sum, t_b_=time_proc_sum, verbose_=verbose_)
         acf_l.append(isttc)
 
     return acf_l
 
 
-def acf_sttc_trail_concat_v3(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, trial_len_, zero_padding_len_, verbose_=True):
+def acf_sttc_trail_concat(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, trial_len_, zero_padding_len_, verbose_=True):
     """
-    Autocorrelation calculated on concatenated trials. Trials are concatenated with zero padding.T term is calculated based
-    on non-padded trails for every lag shift.
-    :param trial_len_:
-    :param verbose_:
-    :param zero_padding_len_:
-    :param sttc_dt_:
-    :param lag_shift_:
-    :param n_lags_:
+    Autocorrelation calculated on concatenated trials. Trials are concatenated with zero padding. For the time lags
+    the trails are shifted and then concatenated again with zero padding.
+    T term (absolute time) is calculated for trails, summed up and divided by the signal len(sum of trail len
+    without zero padding). T is calculated per time lag (on shifted trials).
+
     :param spike_train_l_: list of spike trains, every element of the list contains spikes from 1 trial, length of the
     list is equal to the number of trails. Spike times are realigned (each trial starts at time 0).
+    :param n_lags_: int, number of lags
+    :param lag_shift_:
+    :param sttc_dt_:
+    :param trial_len_: int, len of a trial. All trails have the same length.
+    :param zero_padding_len_:
+    :param verbose_:
     :return:
     """
+
+    def concatenate_trials_with_padding(spike_trains, padding_len):
+        concatenated = spike_trains[0]
+        for idx, trial in enumerate(spike_trains[1:], start=1):
+            concatenated = np.hstack((concatenated, trial + idx * padding_len))
+        return concatenated
+
+    def calculate_t_term(spike_trains, trial_len, dt, verbose):
+        abs_time_sum = 0
+        for trial in spike_trains:
+            time_abs, _ = sttc_calculate_t(
+                trial, len(trial), dt, t_start_=0, t_stop_=trial_len, verbose_=verbose
+            )
+            abs_time_sum += time_abs
+        return abs_time_sum / (len(spike_trains) * trial_len)
+
     if verbose_:
         print('Processing {} trails: n lags {}, lag shift {}, sttc dt {}, zero padding len {}'.
               format(len(spike_train_l_), n_lags_, lag_shift_, sttc_dt_, zero_padding_len_))
 
-    # concatenate trials in 1d signal
-    spike_train_concat = spike_train_l_[0]
-    for idx, trial in enumerate(spike_train_l_[1:]):
-        spike_train_concat = np.hstack((spike_train_concat, trial + (idx + 1) * zero_padding_len_))
-    signal_len_concat = len(spike_train_l_) * trial_len_ + (len(spike_train_l_) - 1) * (zero_padding_len_ - trial_len_)
-    if verbose_:
-        print('Length of concat signal {}'.format(signal_len_concat))
-
-    # calculate T term for the sttc
-    # T term is calculated based on trials without zero padding and is the same for all time lags
-    if verbose_:
-        print('Calculate T term for sttc...')
-    time_abs_sum = 0
-    for spike_trial in spike_train_l_:
-        time_abs_trial, time_prop_trial = sttc_calculate_t(spike_trial, len(spike_trial), sttc_dt_,
-                                                           t_start_=0, t_stop_=trial_len_, verbose_=verbose_)
-        if verbose_:
-            print('Spike train: {} \ntime_abs {}, time_proc {}'.format(spike_trial, time_abs_trial, time_prop_trial))
-        time_abs_sum = time_abs_sum + time_abs_trial
-    time_proc_sum = time_abs_sum / (len(spike_train_l_) * trial_len_)
-    if verbose_:
-        print('Calculated T term for sttc: time_abs_sum {}, time_proc_sum {}'.format(time_abs_sum, time_proc_sum))
+    spike_train_concat = concatenate_trials_with_padding(spike_train_l_, zero_padding_len_)
+    time_proc_sum = calculate_t_term(spike_train_l_, trial_len_, sttc_dt_, verbose_)
+    sttc_no_shift = sttc_fixed_2t(spike_train_concat, spike_train_concat, dt_=sttc_dt_,
+                                  t_a_=time_proc_sum, t_b_=time_proc_sum, verbose_=verbose_)
+    acf_l = [sttc_no_shift]
 
     # generate signal shifts
     if lag_shift_ * n_lags_ == trial_len_:
@@ -671,20 +679,13 @@ def acf_sttc_trail_concat_v3(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, tria
     if verbose_:
         print('Generated lag shifts: {}'.format(shift_ms_l))
 
-    acf_l = []
-    sttc_no_shift = sttc_fixed_2t(spike_train_concat, spike_train_concat, t_start_=0, t_stop_=signal_len_concat,
-                                 dt_=sttc_dt_, t_a_=time_proc_sum, t_b_=time_proc_sum, verbose_=verbose_)
-    acf_l.append(sttc_no_shift)
-
     # correlated shifted signal
     for shift_ms in shift_ms_l:
-        # print(shift_ms)
-        spike_trial_1_concat_ = list(spike_train_l_[0][spike_train_l_[0] >= shift_ms])
+        # # print(shift_ms)
+        spike_trial_1_concat = list(spike_train_l_[0][spike_train_l_[0] >= shift_ms] - shift_ms)
         spike_trial_2_concat = list(spike_train_l_[0][spike_train_l_[0] < trial_len_ - shift_ms])
-        # align, only 1st
-        spike_trial_1_concat = [spike - shift_ms for spike in spike_trial_1_concat_]
-        #print(spike_trial_1_concat, spike_trial_2_concat)
 
+        # todo refactor that
         time_abs_sum_shift_1 = 0
         time_abs_sum_shift_2 = 0
         time_abs_trial_shift_1, _ = sttc_calculate_t(spike_trial_1_concat, len(spike_trial_1_concat), sttc_dt_,
@@ -694,16 +695,14 @@ def acf_sttc_trail_concat_v3(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, tria
         time_abs_sum_shift_1 = time_abs_sum_shift_1 + time_abs_trial_shift_1
         time_abs_sum_shift_2 = time_abs_sum_shift_2 + time_abs_trial_shift_2
 
-        for idx, trial in enumerate(spike_train_l_[1:]):
-            spike_trial_1 = list(trial[trial >= shift_ms])
+        for idx, trial in enumerate(spike_train_l_[1:], start=1):
+            spike_trial_1 = list(trial[trial >= shift_ms] - shift_ms)
             spike_trial_2 = list(trial[trial < trial_len_ - shift_ms])
-            # align, only 1st
-            spike_trial_1_aligned = [spike - shift_ms for spike in spike_trial_1]
-            spike_trial_1_concat = np.hstack((spike_trial_1_concat,
-                                              np.asarray(spike_trial_1_aligned) + (idx + 1) * zero_padding_len_))
-            spike_trial_2_concat = np.hstack((spike_trial_2_concat, np.asarray(spike_trial_2) + (idx + 1) * zero_padding_len_))
+            spike_trial_1_concat = np.hstack((spike_trial_1_concat, np.asarray(spike_trial_1) + idx * zero_padding_len_))
+            spike_trial_2_concat = np.hstack((spike_trial_2_concat, np.asarray(spike_trial_2) + idx * zero_padding_len_))
 
-            time_abs_trial_shift_1, _ = sttc_calculate_t(spike_trial_1_aligned, len(spike_trial_1_aligned), sttc_dt_,
+            # todo refactor that
+            time_abs_trial_shift_1, _ = sttc_calculate_t(spike_trial_1, len(spike_trial_1), sttc_dt_,
                                                          t_start_=0, t_stop_=trial_len_ - shift_ms, verbose_=verbose_)
             time_abs_trial_shift_2, _ = sttc_calculate_t(spike_trial_2, len(spike_trial_2), sttc_dt_,
                                                          t_start_=0, t_stop_=trial_len_ - shift_ms, verbose_=verbose_)
@@ -718,12 +717,9 @@ def acf_sttc_trail_concat_v3(spike_train_l_, n_lags_, lag_shift_, sttc_dt_, tria
         time_prop_sum_shift_1 = time_abs_sum_shift_1 / (len(spike_train_l_) * (trial_len_ - shift_ms))
         time_prop_sum_shift_2 = time_abs_sum_shift_2 / (len(spike_train_l_) * (trial_len_ - shift_ms))
 
-        isttc = sttc_fixed_2t(spike_trial_1_concat, spike_trial_2_concat, t_start_=0,
-                             t_stop_=signal_len_concat - shift_ms*len(spike_train_l_), dt_=sttc_dt_,
-                             t_a_=time_prop_sum_shift_1, t_b_=time_prop_sum_shift_2, verbose_=verbose_)
+        isttc = sttc_fixed_2t(spike_trial_1_concat, spike_trial_2_concat, dt_=sttc_dt_,
+                              t_a_=time_prop_sum_shift_1, t_b_=time_prop_sum_shift_2, verbose_=verbose_)
         acf_l.append(isttc)
 
     return acf_l
-
-
 
