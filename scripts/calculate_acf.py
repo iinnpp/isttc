@@ -371,91 +371,68 @@ def acf_sttc(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=Tr
     return acf_l
 
 
-def get_lag_arrays(spike_train_l_, lag_1_idx_, lag_2_idx_, lag_shift_, zero_padding_len_):
+def get_lag_arrays(spike_train_l_: list, lag_1_idx_: int, lag_2_idx_: int, lag_shift_: int, zero_padding_len_: int):
     """
 
     :param spike_train_l_: list of spike trains, every element of the list contains spikes from 1 trial, length of the
-    list is equal to the number of trials
-    :param lag_1_idx_:
-    :param lag_2_idx_:
-    :param lag_shift_:
-    :param zero_padding_len_:
-    :return:
+    list is equal to the number of trials. Spike times are realigned (each trial starts at time 0).
+    :param lag_1_idx_: int, index for the first lag.
+    :param lag_2_idx_: int, index for the first lag.
+    :param lag_shift_: int, shift for a time lag (in time points)
+    :param zero_padding_len_: int, len of zero padding (in time points).
+    :return: Two 1D arrays containing spike times for lag 1 and lag 2.
     """
-    # select spikes for lags
-    first_lag_l = []
-    second_lag_l = []
-    for i in range(len(spike_train_l_)):  # for all trials
-        spike_train = spike_train_l_[i]
-        first_lag = spike_train[
-            (spike_train[:] > lag_1_idx_ * lag_shift_) & (spike_train[:] <= lag_1_idx_ * lag_shift_ + lag_shift_)]
-        first_lag_l.append(first_lag)
 
-        second_lag = spike_train[
-            (spike_train[:] > lag_2_idx_ * lag_shift_) & (spike_train[:] <= lag_2_idx_ * lag_shift_ + lag_shift_)]
-        second_lag_l.append(second_lag)
+    def extract_lag(spike_train: np.ndarray, lag_idx: int, lag_shift: int) -> np.ndarray:
+        """Extract spikes corresponding to a specific lag."""
+        start = lag_idx * lag_shift
+        end = start + lag_shift
+        return spike_train[(spike_train > start) & (spike_train <= end)]
 
-    # add padding zeros
-    first_lag_l_spaced = []
-    for i in range(0, len(spike_train_l_)):
-        first_lag_l_spaced.append(first_lag_l[i] + i * zero_padding_len_)
+    def add_spacing(lag_list: list, spacing: int) -> list:
+        """Add zero-padding spacing to lag arrays."""
+        return [lag + i * spacing for i, lag in enumerate(lag_list)]
 
-    second_lag_l_spaced = []
-    for i in range(len(spike_train_l_)):
-        second_lag_l_spaced.append(second_lag_l[i] + i * zero_padding_len_)
+    # Extract spikes for both lags
+    first_lag_l = [extract_lag(trial, lag_1_idx_, lag_shift_) for trial in spike_train_l_]
+    second_lag_l = [extract_lag(trial, lag_2_idx_, lag_shift_) for trial in spike_train_l_]
 
-    # reshape in 1d arrays of spike times
-    lag1_l = []
-    for i in range(0, len(spike_train_l_)):
-        if len(first_lag_l_spaced[i]) > 0:
-            # print(first_lag_l_spaced[i])
-            if len(first_lag_l_spaced[i]) == 1:
-                lag1_l.append(np.squeeze(first_lag_l_spaced[i]).tolist())
-            else:
-                n_spikes = len(first_lag_l_spaced[i])
-                for j in range(n_spikes):
-                    lag1_l.append(np.squeeze(first_lag_l_spaced[i][j]).tolist())
+    # Add padding zeros
+    first_lag_spaced = add_spacing(first_lag_l, zero_padding_len_)
+    second_lag_spaced = add_spacing(second_lag_l, zero_padding_len_)
 
-    lag2_l = []
-    for i in range(len(spike_train_l_)):
-        if len(second_lag_l_spaced[i]) > 0:
-            # print(second_lag_l_spaced[i])
-            if len(second_lag_l_spaced[i]) == 1:
-                lag2_l.append(np.squeeze(second_lag_l_spaced[i]).tolist())
-            else:
-                n_spikes = len(second_lag_l_spaced[i])
-                for j in range(n_spikes):
-                    lag2_l.append(np.squeeze(second_lag_l_spaced[i][j]).tolist())
-
+    # Flatten arrays to 1D
+    lag1_l = np.hstack(first_lag_spaced).tolist() if first_lag_spaced else []
+    lag2_l = np.hstack(second_lag_spaced).tolist() if second_lag_spaced else []
     return lag1_l, lag2_l
 
 
 # todo add calculating T terms without 0s
-def acf_sttc_trial_avg(spike_train_l_, lag_shift_, zero_padding_len_, fs_, sttc_dt_, verbose_=True):
+def acf_sttc_trial_avg(spike_train_l_: list, n_lags_: int, lag_shift_: int, sttc_dt_: int, zero_padding_len_: int,
+                       verbose_: bool = True):
     """
     Trial average autocorrelation using STTC.
     :param sttc_dt_:
     :param spike_train_l_: list of spike trains, every element of the list contains spikes from 1 trial, length of the
-    list is equal to the number of trials
+    list is equal to the number of trials. Spike times are realigned (each trial starts at time 0).
+    :param n_lags_: int, number of lags
     :param lag_shift_:
     :param zero_padding_len_:
-    :param fs_:
     :param verbose_:
     :return:
     """
-
-    n_bins = int(fs_ / lag_shift_)
     if verbose_:
-        print('n_bins to use {}'.format(n_bins))
-    acf_matrix = np.zeros((n_bins, n_bins))
+        print('Processing {} trials: n lags {}, lag shift {}, sttc dt {}, zero padding len {}'.
+              format(len(spike_train_l_), n_lags_, lag_shift_, sttc_dt_, zero_padding_len_))
+    acf_matrix = np.zeros((n_lags_, n_lags_))
 
     t_start = 0
     t_stop = (len(spike_train_l_) - 1) * zero_padding_len_ + lag_shift_
     if verbose_:
         print(t_start, t_stop, len(spike_train_l_))
 
-    for i in np.arange(n_bins - 1):
-        for j in np.arange(i + 1, n_bins):  # filling i-th row
+    for i in np.arange(n_lags_ - 1):
+        for j in np.arange(i + 1, n_lags_):  # filling i-th row
             lag_1_spikes_l, lag_2_spikes_l = get_lag_arrays(spike_train_l_, i, j,
                                                             lag_shift_=lag_shift_, zero_padding_len_=zero_padding_len_)
             l1_aligned = [spike - lag_shift_ * i for spike in lag_1_spikes_l]
@@ -464,8 +441,8 @@ def acf_sttc_trial_avg(spike_train_l_, lag_shift_, zero_padding_len_, fs_, sttc_
             acf_matrix[i, j] = sttc_lag
     np.fill_diagonal(acf_matrix, 1)
 
-    acf_average = np.zeros((n_bins,))
-    for i in range(n_bins):
+    acf_average = np.zeros((n_lags_,))
+    for i in range(n_lags_):
         acf_average[i] = np.nanmean(np.diag(acf_matrix, k=i))
 
     return acf_matrix, acf_average
