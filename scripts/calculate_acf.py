@@ -408,8 +408,8 @@ def get_lag_arrays(spike_train_l_: list, lag_1_idx_: int, lag_2_idx_: int, lag_s
 
 
 # todo add calculating T terms without 0s
-def acf_sttc_trial_avg(spike_train_l_: list, n_lags_: int, lag_shift_: int, sttc_dt_: int, zero_padding_len_: int,
-                       verbose_: bool = True):
+def deprecated_acf_sttc_trial_avg(spike_train_l_: list, n_lags_: int, lag_shift_: int, sttc_dt_: int,
+                                  zero_padding_len_: int, verbose_: bool = True):
     """
     Trial average autocorrelation using STTC.
     :param sttc_dt_:
@@ -439,6 +439,119 @@ def acf_sttc_trial_avg(spike_train_l_: list, n_lags_: int, lag_shift_: int, sttc
             l2_aligned = [spike - lag_shift_ * j for spike in lag_2_spikes_l]
             sttc_lag = sttc(l1_aligned, l2_aligned, t_start, t_stop, sttc_dt_, verbose_=verbose_)
             acf_matrix[i, j] = sttc_lag
+    np.fill_diagonal(acf_matrix, 1)
+
+    acf_average = np.zeros((n_lags_,))
+    for i in range(n_lags_):
+        acf_average[i] = np.nanmean(np.diag(acf_matrix, k=i))
+
+    return acf_matrix, acf_average
+
+
+def deprecated_acf_sttc_trial_avg_v2(spike_train_l_: list, n_lags_: int, lag_shift_: int, sttc_dt_: int,
+                                     zero_padding_len_: int, verbose_: bool = True):
+    """
+    Trial average autocorrelation using STTC. T term is calculated on lag signal without padding (lag_shift padding is
+    used to concat all trials in 1d array).
+
+    :param sttc_dt_:
+    :param spike_train_l_: list of spike trains, every element of the list contains spikes from 1 trial, length of the
+    list is equal to the number of trials. Spike times are realigned (each trial starts at time 0).
+    :param n_lags_: int, number of lags
+    :param lag_shift_:
+    :param zero_padding_len_:
+    :param verbose_:
+    :return:
+    """
+    if verbose_:
+        print('Processing {} trials: n lags {}, lag shift {}, sttc dt {}, zero padding len {}'.
+              format(len(spike_train_l_), n_lags_, lag_shift_, sttc_dt_, zero_padding_len_))
+    acf_matrix = np.zeros((n_lags_, n_lags_))
+
+    t_start = 0
+    t_stop = (len(spike_train_l_) - 1) * zero_padding_len_ + lag_shift_
+    if verbose_:
+        print(t_start, t_stop, len(spike_train_l_))
+
+    for i in np.arange(n_lags_ - 1):
+        for j in np.arange(i + 1, n_lags_):  # filling i-th row
+            # get arrays for T term calculation - without zero padding
+            lag_1_spikes_t_l, lag_2_spikes_t_l = get_lag_arrays(spike_train_l_, i, j,
+                                                            lag_shift_=lag_shift_, zero_padding_len_=lag_shift_)
+            l1_aligned_t = [spike - lag_shift_ * i for spike in lag_1_spikes_t_l]
+            l2_aligned_t = [spike - lag_shift_ * j for spike in lag_2_spikes_t_l]
+            l1_t = sttc_calculate_t(l1_aligned_t, len(l1_aligned_t), sttc_dt_, 0, lag_shift_*len(spike_train_l_), verbose_)[1]
+            l2_t = sttc_calculate_t(l2_aligned_t, len(l2_aligned_t), sttc_dt_, 0, lag_shift_*len(spike_train_l_), verbose_)[1]
+            if verbose_:
+                print('l1_t {}, l2_t {}'.format(l1_t, l2_t))
+
+            # get arrays for sttc - with zero padding
+            lag_1_spikes_l, lag_2_spikes_l = get_lag_arrays(spike_train_l_, i, j,
+                                                            lag_shift_=lag_shift_, zero_padding_len_=zero_padding_len_)
+            l1_aligned = [spike - lag_shift_ * i for spike in lag_1_spikes_l]
+            l2_aligned = [spike - lag_shift_ * j for spike in lag_2_spikes_l]
+            sttc_lag = sttc_fixed_2t(l1_aligned, l2_aligned, sttc_dt_, t_a_=l1_t, t_b_=l2_t, verbose_=verbose_)
+            acf_matrix[i, j] = sttc_lag
+
+    np.fill_diagonal(acf_matrix, 1)
+
+    acf_average = np.zeros((n_lags_,))
+    for i in range(n_lags_):
+        acf_average[i] = np.nanmean(np.diag(acf_matrix, k=i))
+
+    return acf_matrix, acf_average
+
+
+def acf_sttc_trial_avg(spike_train_l_: list, n_lags_: int, lag_shift_: int, sttc_dt_: int, zero_padding_len_: int,
+                       verbose_: bool = True):
+    """
+    Trial average autocorrelation using STTC. T term is calculated as in sttc_trail_concat, "trials" are chunks of
+    lag_shift size. The length of the signal for T term calc is sum of all chunks (no zero padding in T term).
+
+    :param spike_train_l_: list of spike trains, every element of the list contains spikes from 1 trial, length of the
+    list is equal to the number of trials. Spike times are realigned (each trial starts at time 0).
+    :param n_lags_: int, number of lags
+    :param lag_shift_: int, shift for a time lag (in time points)
+    :param sttc_dt_: int, dt parameter for STTC calculation
+    :param zero_padding_len_: int, len of zero padding (in time points).
+    :param verbose_: bool, default False, diagnostic printout if True, silent otherwise
+    :return: 2d autocorrelation matrix n_lags x n_lags, 1d array, autocorrelation function.
+    """
+    def extract_lag(spike_train: np.ndarray, lag_idx: int, lag_shift: int) -> np.ndarray:
+        """Extract spikes corresponding to a specific lag."""
+        start = lag_idx * lag_shift
+        end = start + lag_shift
+        return spike_train[(spike_train > start) & (spike_train <= end)]
+
+    def calculate_t_term(spike_train_l, trial_len, dt, verbose):
+        abs_time_sum = sum(sttc_calculate_t(spike_train, len(spike_train), dt, 0, trial_len, verbose)[0]
+                           for spike_train in spike_train_l)
+        return abs_time_sum / (len(spike_train_l) * trial_len)
+
+    if verbose_:
+        print('Processing {} trials: n lags {}, lag shift {}, sttc dt {}, zero padding len {}'.
+              format(len(spike_train_l_), n_lags_, lag_shift_, sttc_dt_, zero_padding_len_))
+    acf_matrix = np.zeros((n_lags_, n_lags_))
+
+    for i in np.arange(n_lags_ - 1):
+        for j in np.arange(i + 1, n_lags_):  # filling i-th row
+            # get arrays for T term calculation - without zero padding
+            # Extract spikes for both lags
+            first_lag_l = [extract_lag(trial, i, lag_shift_) for trial in spike_train_l_]
+            second_lag_l = [extract_lag(trial, j, lag_shift_) for trial in spike_train_l_]
+            first_lag_l_aligned = [trial - lag_shift_ * i for trial in first_lag_l]
+            first_lag_2_aligned = [trial - lag_shift_ * j for trial in second_lag_l]
+            l1_t = calculate_t_term(first_lag_l_aligned, lag_shift_, sttc_dt_, verbose_)
+            l2_t = calculate_t_term(first_lag_2_aligned, lag_shift_, sttc_dt_, verbose_)
+
+            # get arrays for sttc - with zero padding
+            lag_1_spikes_l, lag_2_spikes_l = get_lag_arrays(spike_train_l_, i, j,
+                                                            lag_shift_=lag_shift_, zero_padding_len_=zero_padding_len_)
+            l1_aligned = [spike - lag_shift_ * i for spike in lag_1_spikes_l]
+            l2_aligned = [spike - lag_shift_ * j for spike in lag_2_spikes_l]
+            sttc_lag = sttc_fixed_2t(l1_aligned, l2_aligned, sttc_dt_, t_a_=l1_t, t_b_=l2_t, verbose_=verbose_)
+            acf_matrix[i, j] = sttc_lag
+
     np.fill_diagonal(acf_matrix, 1)
 
     acf_average = np.zeros((n_lags_,))
