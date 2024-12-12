@@ -353,7 +353,7 @@ def acf_sttc(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=Tr
         print('shift_ms_l {}'.format(shift_ms_l))
 
     # Calculate the STTC for the original (unshifted) signal
-    sttc_no_shift = sttc(signal_, signal_, t_start_=0, t_stop_=signal_length_, dt_=sttc_dt_)
+    sttc_no_shift = sttc(signal_, signal_, t_start_=0, t_stop_=signal_length_, dt_=sttc_dt_, verbose_=verbose_)
     acf_l = [sttc_no_shift]
 
     # Iterate through each shift and calculate the STTC for shifted signals
