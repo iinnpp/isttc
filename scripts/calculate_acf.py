@@ -1,10 +1,11 @@
 """
 Functions to calculate autocorrelation function:
-* using ACF equation,
+* using ACF equation (use directly acf function from stattools; my_acf and my_autocorr are the save),
 * using Pearson equation,
 * using iSTTC,
 * trial average ACF using Pearson correlation (see monkey papers),
-* trial average ACF using STTC.
+* trial average ACF using STTC (with 0-padding),
+* trial concat ACF using STTC (with 0-padding).
 """
 import warnings
 
@@ -635,5 +636,29 @@ def acf_sttc_trial_concat(spike_train_l_: list, n_lags_: int, lag_shift_: int, s
         acf_l.append(isttc)
 
     return acf_l
+
+
+# todo make a separate script - calculate_quality_metrics?
+def calculate_acf_flags_t(acf_dict_in_out_, start_idx=1, end_idx=5):
+    """
+    Calculate ACF properties:
+    1. Decline in [50ms, 200ms] period (see Cavanagh et al. 2016) for 50 ms bins; in general decline in [1, 5] bins
+    period.
+    2. ...
+
+    Calculated properties are added to the input dict.
+
+    :param acf_dict_in_out_: dict, dict with calculated ACF functions
+    :param start_idx: first acf value index
+    :param end_idx: last acf value index (not inclusive)
+    :return: acf_dict_in_out_: dict, dict same as input with new fields
+    """
+    for k, v in acf_dict_in_out_.items():
+        if np.all(np.diff(v['acf'][start_idx:end_idx]) <= 0):
+            v['acf_decay_1_4'] = True
+        else:
+            v['acf_decay_1_4'] = False
+
+    return acf_dict_in_out_
 
 

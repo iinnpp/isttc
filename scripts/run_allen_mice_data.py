@@ -2,88 +2,9 @@ import numpy as np
 import pandas as pd
 from random import randrange
 from statsmodels.tsa.stattools import acf
-from scipy.optimize import curve_fit, OptimizeWarning
 
-import warnings
 from scripts.calculate_acf import acf_sttc, acf_pearsonr_trial_avg, acf_sttc_trial_avg, acf_sttc_trial_concat
-
-
-def get_trials(spike_times_, signal_len_, n_trials_, trial_len_, verbose_=False):
-    # get random trail starts and ends
-    trials_start = [randrange(0, signal_len_-trial_len_+1) for i in range(n_trials_)]
-    trials_end = [trial_start + trial_len_ for trial_start in trials_start]
-    trial_intervals = np.vstack((trials_start, trials_end)).T
-    if verbose_:
-        print('N trials {}, trail len {}, n trial starts {}, \ntrial starts {}, \ntrial starts {}'.format(n_trials_, trial_len_,
-                                                                                                          len(trials_start),
-                                                                                                          trials_start, trials_end))
-    # get spikes
-    spikes_trials = []
-    for i in range(n_trials_):
-        spikes_trial = spike_times_[np.logical_and(spike_times_ >= trial_intervals[i,0], spike_times_ < trial_intervals[i,1])]
-        spikes_trials.append(spikes_trial)
-
-    # realign all trails to start with 0
-    spikes_trials_realigned_l = []
-    for idx, trial in enumerate(spikes_trials):
-        spikes_trial_realigned = trial - trial_intervals[idx,0]
-        spikes_trials_realigned_l.append(spikes_trial_realigned)
-
-    return spikes_trials_realigned_l
-
-
-def bin_trials(spikes_trials_l_, trial_len_, bin_size_):
-    binned_spikes_trials_l = []
-
-    n_bin_edges =  int(trial_len_/bin_size_)
-    bins_ = np.linspace(0, bin_size_ * n_bin_edges, n_bin_edges + 1).astype(int)
-    for trial in spikes_trials_l_:
-        binned_spike_train, _ = np.histogram(trial, bins_)
-        binned_spikes_trials_l.append(binned_spike_train)
-    binned_spikes_trials_2d = np.asarray(binned_spikes_trials_l)
-
-    return binned_spikes_trials_2d
-
-
-def func_single_exp(x, a, b, c):
-    return a * np.exp(-b * x) + c
-
-
-def fit_single_exp(ydata_to_fit_, start_idx_=1):
-    """
-    Fit function func_exp to data using non-linear least square.
-
-    todo check that - important point: Fit is done from the first ACF value (acf[0] is skipped, it is done like this
-    in the papers, still not sure)
-
-    :param ydata_to_fit_: 1d array, the dependant data to fit
-    :param start_idx_: int, index to start fitting from
-    :return: fit_popt, fit_pcov, tau, fit_r_squared
-    """
-    t = np.linspace(0, len(ydata_to_fit_), len(ydata_to_fit_)).astype(int)
-
-    with warnings.catch_warnings():
-        warnings.filterwarnings('error')
-        try:
-            popt, pcov = curve_fit(func_single_exp, t[start_idx_:], ydata_to_fit_[start_idx_:], maxfev=5000)
-            fit_popt = popt
-            fit_pcov = pcov
-            tau = 1 / fit_popt[1]
-        except RuntimeError as e:
-            print('RuntimeError: {}'. format(e))
-            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
-        except OptimizeWarning as o:
-            print('OptimizeWarning: {}'. format(o))
-            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
-        except RuntimeWarning as re:
-            print('RuntimeWarning: {}'. format(re))
-            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
-        except ValueError as ve:
-            print('ValueError: {}'. format(ve))
-            print('Possible reason: acf contains NaNs, low spike count')
-            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
-
-    return tau
+from scripts.calculate_tau import fit_single_exp
 
 
 if __name__ == "__main__":
