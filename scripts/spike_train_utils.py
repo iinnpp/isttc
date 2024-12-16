@@ -39,6 +39,30 @@ def bin_spike_train(spike_train_int_l_, bin_length_ms_, fs_, verbose_=False):
     return binned_spike_train
 
 
+def bin_spike_train_fixed_len(spike_train_int_l_, bin_length_ms_, fs_, signal_len_, verbose_=False):
+    """
+    Bin spike train.
+
+    :param spike_train_int_l_: list, list of spike times (int), sampling frequency fs_
+    :param bin_length_ms_: int, bin length in ms
+    :param fs_: int, sampling frequency in Hz
+    :param verbose_: bool, default False, diagnostic printout if True, silent otherwise
+    :return: 1d array, binned spike train, each bin contains spike count
+    """
+    bin_length_fs = int(fs_ / 1000 * bin_length_ms_)
+    n_bin_edges = int(signal_len_ / bin_length_fs)
+    bins = np.linspace(0, bin_length_fs * n_bin_edges, n_bin_edges + 1).astype(int)
+    binned_spike_train, _ = np.histogram(spike_train_int_l_, bins)
+
+    if verbose_:
+        print('Binning spike train: bin_length_ms {}, bin_length_fs {}'.format(bin_length_ms_, bin_length_fs))
+        print('n bins {}, spike bin count: number of spikes in bin - number of bins {}'.format(binned_spike_train.shape,
+                                                                                               np.unique(
+                                                                                                   binned_spike_train,
+                                                                                                   return_counts=True)))
+    return binned_spike_train
+
+
 def get_trials(spike_times_, signal_len_, n_trials_, trial_len_, verbose_=False):
     # get random trail starts and ends
     trials_start = [randrange(0, signal_len_-trial_len_+1) for i in range(n_trials_)]
