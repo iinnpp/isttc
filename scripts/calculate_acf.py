@@ -337,6 +337,9 @@ def sttc_fixed_2t(spiketrain_1_l_, spiketrain_2_l_, dt_, t_a_, t_b_, verbose_=Tr
 def acf_sttc(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=True):
     """
     Autocorrelation function using STTC.
+
+    Signal temporal resolution must be same as lag_shift_, sttc_dt_ and signal_length_ (e.g. all in ms or raw fs)
+
     :param signal_:
     :param n_lags_:
     :param lag_shift_:

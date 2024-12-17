@@ -28,24 +28,12 @@ def write_sua_csv(csv_file_name_, sua_list_original_, sua_list_new_, verbose_=Fa
 
     with open(csv_file_name_, 'a', newline='') as f:
         writer = csv.writer(f)
-        for unit_row_n, spike_train in enumerate(binned_spikes_l):
+        for unit_row_n, spike_train in enumerate(sua_list_new_):
             if verbose_:
                 print('Writing unit {}'.format(unit_row_n))
             spike_train_l = spike_train.tolist()
-            row = [animal_id_l[unit_row_n]] + [age_l[unit_row_n]] + [unit_id_l[unit_row_n]] \
-                + [channel_id_l[unit_row_n]] + [non_zero_bins_ratio_l[unit_row_n]] + [
-                      fr_l[unit_row_n]] + [rpv_l[unit_row_n]] + [rec_length_l[unit_row_n]] + spike_train_l
-            writer.writerow(row)
-
-
-    print('Writing to csv...')
-    with open(output_filename, 'a', newline='') as f:
-        writer = csv.writer(f)
-        for k,v in spikes_out_dict.items():
-            if verbose:
-                print('Writing unit {}'.format(v['unit_id']))
-            #    spikes_l = spike_train.tolist()
-            row = [v['specimen_id']] + [v['session_id']] + [v['unit_id']] + [v['ecephys_structure_acronym']] + list(map(float, v['spike_times'].split(',')))
+            row = [sua_list_original_[unit_row_n][0]] + [sua_list_original_[unit_row_n][1]] \
+                  + [sua_list_original_[unit_row_n][2]] + [sua_list_original_[unit_row_n][3]] + spike_train_l
             writer.writerow(row)
 
 
@@ -54,8 +42,8 @@ if __name__ == "__main__":
     fs = 30000  # neuropixels
 
     trim_spikes = False
-    bin_spikes = True
-    calculate_acf = False
+    bin_spikes = False
+    calculate_acf = True
 
     min_to_keep = 30
 
@@ -72,11 +60,13 @@ if __name__ == "__main__":
             spike_train_ = np.asarray(sua_list[i][4:]).astype(float)
             spike_train_fs = spike_train_ * fs  # csv is in sec
             spike_train_fs_int = spike_train_fs.astype(int)
+            n_spikes_out = np.count_nonzero(spike_train_fs_int >= min_to_keep * 60 * fs)
+            print(f'n spikes to remove {n_spikes_out}')
             sua_list_trimmed.append(spike_train_fs_int[spike_train_fs_int < min_to_keep * 60 * fs])
 
         # save
-        np.save(data_folder + 'dataset\\cut_' + str(min_to_keep) + 'min\\sua_list.npy',
-                np.asarray(sua_list_trimmed, dtype='object'))
+        write_sua_csv(data_folder + 'dataset\\cut_' + str(min_to_keep) + 'min\\sua_list.csv',
+                      sua_list, sua_list_trimmed, verbose_=True)
 
     if bin_spikes:
         params_dict = {'25ms': {'bin_size': 25, 'bin_size_suffix': '25ms', 'calc': True},
@@ -86,61 +76,116 @@ if __name__ == "__main__":
                        '75ms': {'bin_size': 75, 'bin_size_suffix': '75ms', 'calc': True},
                        '100ms': {'bin_size': 100, 'bin_size_suffix': '100ms', 'calc': True}
                        }
-        sua_list = np.load(data_folder + 'dataset\\cut_30min\\sua_list.npy', allow_pickle=True)
+        csv_data_file = data_folder + 'dataset\\cut_30min\\sua_list.csv'
+        with open(csv_data_file, newline='') as f:
+            reader = csv.reader(f)
+            sua_list = list(reader)
+        print(f'Loaded N units {len(sua_list)}')
         signal_len = min_to_keep * 60 * fs
         for k, v in params_dict.items():
             print(f'processing {k}')
             sua_list_binned_l = []
             for j in range(len(sua_list)):
-                binned_spike_train = bin_spike_train_fixed_len(sua_list[j], v['bin_size'], fs, signal_len, verbose_=True)
+                binned_spike_train = bin_spike_train_fixed_len([int(spike) for spike in sua_list[j][4:]],
+                                                               v['bin_size'], fs, signal_len,
+                                                               verbose_=True)
                 sua_list_binned_l.append(binned_spike_train)
 
-            np.save(data_folder + 'dataset\\cut_30min\\sua_list_binned_' + k + '.npy', sua_list_binned_l,
-                    allow_pickle=True)
+            write_sua_csv(data_folder + 'dataset\\cut_30min\\sua_list_binned_' + k + '.csv',
+                          sua_list, sua_list_binned_l, verbose_=True)
 
     if calculate_acf:
-        # params
-        num_lags = 20
-        bin_size = int(50 * (fs / 1000))
-        sttc_dt = int(49 * (fs / 1000))
+        params_dict = {'isttc_25_40': {'bin_size': 25, 'n_lags': 40, 'bin_size_suffix': '25ms', 'metric': 'isttc',
+                                       'calc': False},
+                       'isttc_40_25': {'bin_size': 40, 'n_lags': 25, 'bin_size_suffix': '40ms', 'metric': 'isttc',
+                                       'calc': False},
+                       'isttc_50_20': {'bin_size': 50, 'n_lags': 20, 'bin_size_suffix': '50ms', 'metric': 'isttc',
+                                       'calc': True},
+                       'isttc_60_16': {'bin_size': 60, 'n_lags': 16, 'bin_size_suffix': '60ms', 'metric': 'isttc',
+                                       'calc': False},
+                       'isttc_75_13': {'bin_size': 75, 'n_lags': 13, 'bin_size_suffix': '75ms', 'metric': 'isttc',
+                                       'calc': False},
+                       'isttc_100_10': {'bin_size': 100, 'n_lags': 10, 'bin_size_suffix': '100ms', 'metric': 'isttc',
+                                        'calc': False},
+                       'acf_25_40': {'bin_size': 25, 'n_lags': 40, 'bin_size_suffix': '25ms', 'metric': 'acf',
+                                     'calc': False},
+                       'acf_40_25': {'bin_size': 40, 'n_lags': 25, 'bin_size_suffix': '40ms', 'metric': 'acf',
+                                     'calc': False},
+                       'acf_50_20': {'bin_size': 50, 'n_lags': 20, 'bin_size_suffix': '50ms', 'metric': 'acf',
+                                     'calc': False},
+                       'acf_60_16': {'bin_size': 60, 'n_lags': 16, 'bin_size_suffix': '60ms', 'metric': 'acf',
+                                     'calc': False},
+                       'acf_75_13': {'bin_size': 75, 'n_lags': 13, 'bin_size_suffix': '75ms', 'metric': 'acf',
+                                     'calc': False},
+                       'acf_100_10': {'bin_size': 100, 'n_lags': 10, 'bin_size_suffix': '100ms', 'metric': 'acf',
+                                      'calc': False}
+                       }
+
+        #num_lags = 20
+        # bin_size = int(50 * (fs / 1000))
+        # sttc_dt = int(49 * (fs / 1000))
         signal_len = int(min_to_keep * 60 * fs)
 
-        sua_list = np.load(data_folder + 'dataset\\cut_30min\\sua_list.npy', allow_pickle=True)
-        sua_list_binned = np.load(data_folder + 'dataset\\cut_30min\\sua_list_binned_50ms.npy', allow_pickle=True)
+        for k, v in params_dict.items():
+            print(f'processing {k}')
+            if not v['calc']:
+                print('Skipping...')
+            else:
+                if v['metric'] == 'isttc':
+                    csv_data_file = data_folder + 'dataset\\cut_30min\\sua_list.csv'
+                    with open(csv_data_file, newline='') as f:
+                        reader = csv.reader(f)
+                        sua_list = list(reader)
+                    print(f'Loaded N units {len(sua_list)}')
 
-        for spike_train_idx, spike_train in enumerate(sua_list):
-            print('Processing unit {}'.format(spike_train_idx))
+                    isttc_full_l = []
+                    for spike_train_idx, spike_train in enumerate(sua_list[:3]):
+                        spike_train_int = np.asarray([int(spike) for spike in spike_train[4:]])
+                        lag_shift = int(v['bin_size'] * (fs / 1000))
+                        sttc_dt = int((v['bin_size'] - 1) * (fs / 1000))
+                        print(lag_shift, sttc_dt)
+                        spike_train_acf = acf_sttc(spike_train_int, v['n_lags'], lag_shift_=lag_shift, sttc_dt_=sttc_dt,
+                                                   signal_length_=signal_len, verbose_=True)
+                        print('spike_train_acf shape {}, \nspike_train_acf: {}'.format(len(spike_train_acf), spike_train_acf))
+                        # spike_train_popt_tau = fit_single_exp(spike_train_acf, start_idx_=1)
+                        # spike_train_tau_ms = spike_train_popt_tau * bin_size
+                        # print('spike_train_popt: {}, spike_train_tau_ms: {}'.format(spike_train_popt, spike_train_tau_ms))
+                        isttc_full_l.append(spike_train_acf)
 
-            # Using isttc
-            spike_train_acf = acf_sttc(spike_train, num_lags, lag_shift_=bin_size, sttc_dt_=sttc_dt,
-                                       signal_length_=signal_len, verbose_=False)
-            sttc_full.append(spike_train_tau_ms)
+                if v['metric'] == 'acf':
+                    sua_list_binned = np.load(data_folder + 'dataset\\cut_30min\\sua_list_binned_50ms.npy', allow_pickle=True)
 
-            # on full signal
-            # Using acf func
-            spike_train_binned_acf = acf(ou_spiketrain_binned, nlags=num_lags)
-            # print('spike_train_binned_acf shape {}, \nspike_train_binned_acf: {}'.format(spike_train_binned_acf.shape, spike_train_binned_acf))
-            spike_train_binned_tau = fit_single_exp(spike_train_binned_acf, start_idx_=1)
-            spike_train_binned_tau_ms = spike_train_binned_tau * bin_size
-            # print('spike_train_binned_popt: {}, spike_train_binned_tau_ms: {}'.format(spike_train_binned_popt, spike_train_binned_tau_ms))
-            acf_full.append(spike_train_binned_tau_ms)
-
-            # Using isttc
-            spike_train_acf = acf_sttc(spike_times, num_lags, lag_shift_=bin_size, sttc_dt_=sttc_dt,
-                                       signal_length_=signal_len, verbose_=False)
-            # print('spike_train_acf shape {}, \nspike_train_acf: {}'.format(len(spike_train_acf), spike_train_acf))
-            spike_train_popt_tau = fit_single_exp(spike_train_acf, start_idx_=1)
-            spike_train_tau_ms = spike_train_popt_tau * bin_size
-            # print('spike_train_popt: {}, spike_train_tau_ms: {}'.format(spike_train_popt, spike_train_tau_ms))
-            sttc_full.append(spike_train_tau_ms)
-
+        # for spike_train_idx, spike_train in enumerate(sua_list):
+        #     print('Processing unit {}'.format(spike_train_idx))
+        #
+        #     # Using isttc
+        #     spike_train_acf = acf_sttc(spike_train, num_lags, lag_shift_=bin_size, sttc_dt_=sttc_dt,
+        #                                signal_length_=signal_len, verbose_=False)
+        #     sttc_full.append(spike_train_tau_ms)
+        #
+        #     # on full signal
+        #     # Using acf func
+        #     spike_train_binned_acf = acf(ou_spiketrain_binned, nlags=num_lags)
+        #     # print('spike_train_binned_acf shape {}, \nspike_train_binned_acf: {}'.format(spike_train_binned_acf.shape, spike_train_binned_acf))
+        #     spike_train_binned_tau = fit_single_exp(spike_train_binned_acf, start_idx_=1)
+        #     spike_train_binned_tau_ms = spike_train_binned_tau * bin_size
+        #     # print('spike_train_binned_popt: {}, spike_train_binned_tau_ms: {}'.format(spike_train_binned_popt, spike_train_binned_tau_ms))
+        #     acf_full.append(spike_train_binned_tau_ms)
+        #
+        #     # Using isttc
+        #     spike_train_acf = acf_sttc(spike_times, num_lags, lag_shift_=bin_size, sttc_dt_=sttc_dt,
+        #                                signal_length_=signal_len, verbose_=False)
+        #     # print('spike_train_acf shape {}, \nspike_train_acf: {}'.format(len(spike_train_acf), spike_train_acf))
+        #     spike_train_popt_tau = fit_single_exp(spike_train_acf, start_idx_=1)
+        #     spike_train_tau_ms = spike_train_popt_tau * bin_size
+        #     # print('spike_train_popt: {}, spike_train_tau_ms: {}'.format(spike_train_popt, spike_train_tau_ms))
+        #     sttc_full.append(spike_train_tau_ms)
 
     # print(f'len sua {len(sua_list_30min)}, len sua_binned {len(sua_list_30min_binned)}')
 
-
     # make trials
-    #n_trials = 30
-    #trial_len = int(num_lags * bin_size)
+    # n_trials = 30
+    # trial_len = int(num_lags * bin_size)
 
     # spikes_trials_30 = get_trials(sua_list_30min[0], signal_len, n_trials, trial_len, verbose_=False)
     # spikes_trials_30_binned = bin_trials(spikes_trials_30, trial_len, bin_size)
@@ -267,5 +312,3 @@ if __name__ == "__main__":
     #
     #     print(f'acf {spike_train_binned_tau_ms}, sttc {spike_train_tau_ms}, p_avg {np.nanmedian(pearson_avg_l)}, '
     #           f'sttc avg {np.nanmedian(sttc_avg_l)}, sttc concat {np.nanmedian(sttc_concat_l)}')
-
-
