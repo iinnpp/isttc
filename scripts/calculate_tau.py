@@ -32,17 +32,17 @@ def fit_single_exp(ydata_to_fit_, start_idx_=1):
     :param start_idx_: int, index to start fitting from
     :return: fit_popt, fit_pcov, tau, fit_r_squared
     """
-    t = np.linspace(start_idx_, len(ydata_to_fit_), len(ydata_to_fit_)).astype(int)
+    t = np.linspace(0, len(ydata_to_fit_)-1, len(ydata_to_fit_)).astype(int)
 
     with warnings.catch_warnings():
         warnings.filterwarnings('error')
         try:
-            popt, pcov = curve_fit(func_single_exp, t, ydata_to_fit_[start_idx_:], maxfev=5000)
+            popt, pcov = curve_fit(func_single_exp, t[start_idx_:], ydata_to_fit_[start_idx_:], maxfev=5000)
             fit_popt = popt
             fit_pcov = pcov
             tau = 1 / fit_popt[1]
             # fit r-squared
-            y_pred = func_single_exp(t, *popt)
+            y_pred = func_single_exp(t[start_idx_:], *popt)
             fit_r_squared = r2_score(ydata_to_fit_[start_idx_:], y_pred)
         except RuntimeError as e:
             print('RuntimeError: {}'. format(e))
