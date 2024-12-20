@@ -39,7 +39,7 @@ def write_sua_csv(csv_file_name_, sua_list_original_, sua_list_new_, verbose_=Fa
 
 if __name__ == "__main__":
     # data_folder = 'Q:\\Personal\\Irina\\projects\\isttc\\results\\allen_mice\\'
-    data_folder = 'E:\\isttc\\results\\allen_mice\\'
+    data_folder = 'D:\\isttc\\results\\allen_mice\\'
     fs = 30000  # neuropixels
 
     trim_spikes = False
