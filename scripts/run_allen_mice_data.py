@@ -7,6 +7,7 @@ from statsmodels.tsa.stattools import acf
 
 from scripts.calculate_acf import acf_sttc, acf_pearsonr_trial_avg, acf_sttc_trial_avg, acf_sttc_trial_concat
 from scripts.calculate_tau import fit_single_exp
+from scripts.cfg_global import project_folder_path
 from scripts.spike_train_utils import bin_spike_train_fixed_len
 
 
@@ -39,6 +40,7 @@ def write_sua_csv(csv_file_name_, sua_list_original_, sua_list_new_, verbose_=Fa
 
 if __name__ == "__main__":
     # data_folder = 'Q:\\Personal\\Irina\\projects\\isttc\\results\\allen_mice\\'
+    # data_folder = project_folder_path + 'results\\allen_mice\\'
     data_folder = 'D:\\isttc\\results\\allen_mice\\'
     fs = 30000  # neuropixels
 
