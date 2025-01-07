@@ -165,7 +165,7 @@ if __name__ == "__main__":
     pfp_summary_df.to_pickle(results_folder + 'pfp_n_trials_per_unit_df.pkl')
 
     if preprocess_data:
-        print(f'Preprocessing data, interval to cut {cut_interval} ms ...')s
+        print(f'Preprocessing data, interval to cut {cut_interval} ms ...')
         # get csv
         csv_data_file_pfdl = results_folder + 'data_pfdl_fixon.csv'
         with open(csv_data_file_pfdl, newline='') as f:
