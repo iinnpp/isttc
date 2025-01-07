@@ -1,5 +1,5 @@
 """
-todo
+Script loads monkey spiking data.
 """
 
 import pickle
@@ -41,6 +41,14 @@ def prep_data_for_csv(units_l, n_units):
     return unit_id_l, trial_id_l, condition_id_l, spike_trains_l
 
 
+def get_n_trials_per_neuron(unit_all_trial, n_neuron):
+    n_trials_all_conditions = 0
+    for i in range(len(unit_all_trial[n_neuron])):
+        # print('N trials for task conditions {}: {}'.format(i+1, len(unit_all_trial[n_neuron][i])))
+        n_trials_all_conditions = n_trials_all_conditions + len(unit_all_trial[n_neuron][i])
+    return n_trials_all_conditions
+
+
 def get_spikes_per_interval(sua_list, area_name, interval=None, include_empty_trials=False, verbose=False):
     unit_id_l, trial_id_l, condition_id_l, spike_trains_l = [], [], [], []
     for trial in sua_list:
@@ -71,18 +79,6 @@ def get_spikes_per_interval(sua_list, area_name, interval=None, include_empty_tr
                               columns=['unit_id', 'trial_id', 'condition_id'])
     summary_df['area'] = area_name
     return summary_df, spike_trains_l
-
-
-# def write_csv(output_filename, unit_id_l, trial_id_l, condition_id_l, spike_trains_l, verbose=True):
-#     with open(output_filename, 'a', newline='') as f:
-#         writer = csv.writer(f)
-#         for unit_row_n, spike_train in enumerate(spike_trains_l):
-#             if verbose:
-#                 print('Writing unit {}'.format(unit_id_l[unit_row_n]))
-#                 # print(spike_train)
-#             spikes_l = spike_train.tolist()
-#             row = [unit_id_l[unit_row_n]] + [trial_id_l[unit_row_n]] + [condition_id_l[unit_row_n]] + spikes_l
-#             writer.writerow(row)
 
 
 def write_csv(output_filename, unit_id_l, trial_id_l, condition_id_l, spike_trains_l, convert_to_list=False,
@@ -117,11 +113,12 @@ if __name__ == "__main__":
     data_folder = project_folder_path + 'monkey_dataset\\Irina_data\\'
     results_folder = project_folder_path + 'results\\monkey\\'
 
-    load_data = False
-    preprocess_data = True
-    cut_interval = [0, 1500]
+    load_data = True
+    preprocess_data = False
+    cut_interval = [0, 1000]
 
     if load_data:
+        print('Loading data ...')
         # get data
         with open(data_folder + 'data_PFdl_fixON.pkl', 'rb') as f:
             data_PFdl_fix_on = pickle.load(f)
@@ -147,7 +144,28 @@ if __name__ == "__main__":
         write_csv(output_filename_pfp, unit_id_pfp_l, trial_id_pfp_l, condition_id_pfp_l, spike_trains_pfp_l,
                   convert_to_list=True, verbose=True)
 
+        # save number of trials in df
+        n_trials_per_neuron_pfdl_fix_on_l = []
+        for i in range(len(data_PFdl_fix_on)):
+            n_trails = get_n_trials_per_neuron(data_PFdl_fix_on, i)
+            n_trials_per_neuron_pfdl_fix_on_l.append(n_trails)
+        pfdl_summary_df = pd.DataFrame(n_trials_per_neuron_pfdl_fix_on_l, columns=['n_trials'])
+        pfdl_summary_df.reset_index(inplace=True, drop=False)
+        pfdl_summary_df.rename(columns={'index': 'unit_id'}, inplace=True)
+
+        n_trials_per_neuron_pfp_fix_on_l = []
+        for i in range(len(data_PFp_fix_on)):
+            n_trails = get_n_trials_per_neuron(data_PFp_fix_on, i)
+            n_trials_per_neuron_pfp_fix_on_l.append(n_trails)
+        pfp_summary_df = pd.DataFrame(n_trials_per_neuron_pfp_fix_on_l, columns=['n_trials'])
+        pfp_summary_df.reset_index(inplace=True, drop=False)
+        pfp_summary_df.rename(columns={'index': 'unit_id'}, inplace=True)
+
+    pfdl_summary_df.to_pickle(results_folder + 'pfdl_n_trials_per_unit_df.pkl')
+    pfp_summary_df.to_pickle(results_folder + 'pfp_n_trials_per_unit_df.pkl')
+
     if preprocess_data:
+        print(f'Preprocessing data, interval to cut {cut_interval} ms ...')s
         # get csv
         csv_data_file_pfdl = results_folder + 'data_pfdl_fixon.csv'
         with open(csv_data_file_pfdl, newline='') as f:
