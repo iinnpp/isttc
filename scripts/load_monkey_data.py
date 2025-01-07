@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 import os
 from scripts.cfg_global import project_folder_path
+from scripts.spike_train_utils import bin_spike_train_fixed_len
 
 
 def prep_data_for_csv(units_l, n_units):
@@ -113,9 +114,17 @@ if __name__ == "__main__":
     data_folder = project_folder_path + 'monkey_dataset\\Irina_data\\'
     results_folder = project_folder_path + 'results\\monkey\\'
 
-    load_data = True
+    load_data = False
+
     preprocess_data = False
     cut_interval = [0, 1000]
+
+    bin_data = True
+    bin_size_ms = 50
+    signal_len_fs = 1000  # in signal sampling frequency
+    fs = 1000
+    input_file_suffix = '1000ms_with_empty_fixation'
+    output_file_suffix = '1000ms_with_empty_fixation_binned_50ms'
 
     if load_data:
         print('Loading data ...')
@@ -161,8 +170,8 @@ if __name__ == "__main__":
         pfp_summary_df.reset_index(inplace=True, drop=False)
         pfp_summary_df.rename(columns={'index': 'unit_id'}, inplace=True)
 
-    pfdl_summary_df.to_pickle(results_folder + 'pfdl_n_trials_per_unit_df.pkl')
-    pfp_summary_df.to_pickle(results_folder + 'pfp_n_trials_per_unit_df.pkl')
+        pfdl_summary_df.to_pickle(results_folder + 'pfdl_n_trials_per_unit_df.pkl')
+        pfp_summary_df.to_pickle(results_folder + 'pfp_n_trials_per_unit_df.pkl')
 
     if preprocess_data:
         print(f'Preprocessing data, interval to cut {cut_interval} ms ...')
@@ -242,3 +251,51 @@ if __name__ == "__main__":
                                                 + str(cut_interval[1]) + '.pkl')
         pfp_n_trials_per_unit_merged.to_pickle(results_folder + 'pfp_n_trials_per_unit_fixation_'
                                                + str(cut_interval[1]) + '.pkl')
+
+    if bin_data:
+        print(f'Binning spikes, bin size {bin_size_ms} ms ...')
+
+        # load data
+        csv_data_file_pfdl = results_folder + 'data_pfdl_fixon_' + input_file_suffix + '.csv'
+        with open(csv_data_file_pfdl, newline='') as f:
+            reader = csv.reader(f)
+            sua_list_pfdl = list(reader)
+        n_spike_trains_pfdl = len(sua_list_pfdl)
+        print('N spike_trains in PFdl fixON {}'.format(n_spike_trains_pfdl))
+
+        csv_data_file_pfp = results_folder + 'data_pfp_fixon_' + input_file_suffix + '.csv'
+        with open(csv_data_file_pfp, newline='') as f:
+            reader = csv.reader(f)
+            sua_list_pfp = list(reader)
+        n_spike_trains_pfp = len(sua_list_pfp)
+        print('N spike_trains in PFp fixON {}'.format(n_spike_trains_pfp))
+
+        # bin
+        unit_id_pfdl_l, trial_id_pfdl_l, condition_id_pfdl_l, spike_binned_pfdl_l = [], [], [], []
+        for unit in sua_list_pfdl:
+            unit_id_pfdl_l.append(unit[0])
+            trial_id_pfdl_l.append(unit[1])
+            condition_id_pfdl_l.append(unit[2])
+            spike_train = list(map(int, unit[3:]))
+            binned_spike_train = bin_spike_train_fixed_len(spike_train, bin_size_ms, fs, signal_len_fs,
+                                                           verbose_=False)
+            spike_binned_pfdl_l.append(binned_spike_train)
+
+        unit_id_pfp_l, trial_id_pfp_l, condition_id_pfp_l, spike_binned_pfp_l = [], [], [], []
+        for unit in sua_list_pfp:
+            unit_id_pfp_l.append(unit[0])
+            trial_id_pfp_l.append(unit[1])
+            condition_id_pfp_l.append(unit[2])
+            spike_train = list(map(int, unit[3:]))
+            binned_spike_train = bin_spike_train_fixed_len(spike_train, bin_size_ms, fs, signal_len_fs,
+                                                           verbose_=False)
+            spike_binned_pfp_l.append(binned_spike_train)
+
+        # save in csv
+        output_filename_pfdl = results_folder + 'data_pfdl_fixon_' + output_file_suffix + '.csv'
+        write_csv(output_filename_pfdl, unit_id_pfdl_l, trial_id_pfdl_l, condition_id_pfdl_l, spike_binned_pfdl_l,
+                  convert_to_list=True, verbose=True)
+
+        output_filename_pfp = results_folder + 'data_pfp_fixon_' + output_file_suffix + '.csv'
+        write_csv(output_filename_pfp, unit_id_pfp_l, trial_id_pfp_l, condition_id_pfp_l, spike_binned_pfp_l,
+                  convert_to_list=True, verbose=True)
