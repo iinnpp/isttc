@@ -50,39 +50,55 @@ def get_n_trials_per_neuron(unit_all_trial, n_neuron):
     return n_trials_all_conditions
 
 
-def get_spikes_per_interval(sua_list, area_name, interval=None, include_empty_trials=False, verbose=False):
-    unit_id_l, trial_id_l, condition_id_l, spike_trains_l = [], [], [], []
-    for trial in sua_list:
-        if interval is None:
+def get_spikes_per_interval(sua_list_, interval_, sampling_freq_, include_empty_trials_=False, verbose_=False):
+    """
+        Extracts spike trains within a specified time interval, calculates spike counts and firing rates,
+        and organizes the data into a dictionary.
+
+        Parameters:
+            sua_list_ (list): List of single-unit activity data, each entry containing unit ID, trial ID,
+                            condition ID, and spike times.
+            interval_ (tuple): Time interval (start, end) in which spikes are counted.
+            sampling_freq_ (float): Sampling frequency in Hz.
+            include_empty_trials_ (bool): Whether to include trials with no spikes in the interval.
+            verbose_ (bool): Whether to print detailed information about empty trials.
+
+    Returns:
+        dict: A dictionary containing the following keys:
+            - 'unit_ids': List of unit IDs.
+            - 'trial_ids': List of trial IDs.
+            - 'condition_ids': List of condition IDs.
+            - 'spike_counts': List of spike counts per trial.
+            - 'firing_rates': List of firing rates (Hz) per trial.
+            - 'spike_trains': List of spike trains (spikes within the interval) per trial.
+        """
+    unit_id_l, trial_id_l, condition_id_l, spike_count_l, fr_hz_l, spike_trains_l = [], [], [], [], [], []
+    interval_duration = (interval_[1] - interval_[0]) / sampling_freq_
+    for trial in sua_list_:
+        spike_train = trial[3:]
+        spike_train_interval = [spike for spike in spike_train if interval_[0] <= int(spike) <= interval_[1]]
+        if spike_train_interval or include_empty_trials_:
             unit_id_l.append(trial[0])
             trial_id_l.append(trial[1])
             condition_id_l.append(trial[2])
-            spike_trains_l.append(trial[3:])
-        else:
-            spike_train = trial[3:]
-            spike_train_interval = [spike for spike in spike_train if
-                                    int(spike) >= interval[0] and int(spike) <= interval[1]]
-            if len(spike_train_interval) >= 1:
-                unit_id_l.append(trial[0])
-                trial_id_l.append(trial[1])
-                condition_id_l.append(trial[2])
-                spike_trains_l.append(spike_train_interval)
-            else:
-                if include_empty_trials:
-                    unit_id_l.append(trial[0])
-                    trial_id_l.append(trial[1])
-                    condition_id_l.append(trial[2])
-                    spike_trains_l.append([])
-                if verbose:
-                    print('Unit {}, trial {}: NO spikes in this interval'.format(trial[0], trial[1]))
+            spike_count_l.append(len(spike_train_interval))
+            fr_hz_l.append(len(spike_train_interval) / interval_duration)
+            spike_trains_l.append(spike_train_interval if spike_train_interval else [])
+        if verbose_ and not spike_train_interval:
+            print(f"Unit {trial[0]}, trial {trial[1]}: NO spikes in this interval")
 
-    summary_df = pd.DataFrame(np.vstack((unit_id_l, trial_id_l, condition_id_l)).T,
-                              columns=['unit_id', 'trial_id', 'condition_id'])
-    summary_df['area'] = area_name
-    return summary_df, spike_trains_l
+    return {
+        'unit_ids': unit_id_l,
+        'trial_ids': trial_id_l,
+        'condition_ids': condition_id_l,
+        'spike_counts': spike_count_l,
+        'firing_rates': fr_hz_l,
+        'spike_trains': spike_trains_l
+    }
 
 
-def write_csv(output_filename, unit_id_l, trial_id_l, condition_id_l, spike_trains_l, convert_to_list=False,
+def write_csv(output_filename, unit_id_l, trial_id_l, condition_id_l, spike_count_l, firing_rate_l,
+              spike_trains_l, convert_to_list=False,
               verbose=True):
     """
     Write spike train data to a CSV file.
@@ -106,7 +122,11 @@ def write_csv(output_filename, unit_id_l, trial_id_l, condition_id_l, spike_trai
             if verbose:
                 print(f'Writing unit {unit_id_l[unit_row_n]}')
             spikes_l = spike_train.tolist() if convert_to_list else spike_train
-            row = [unit_id_l[unit_row_n]] + [trial_id_l[unit_row_n]] + [condition_id_l[unit_row_n]] + spikes_l
+            if spike_count_l:
+                row = [unit_id_l[unit_row_n]] + [trial_id_l[unit_row_n]] + [condition_id_l[unit_row_n]] \
+                      + [spike_count_l[unit_row_n]] + [firing_rate_l[unit_row_n]] + spikes_l
+            else:
+                row = [unit_id_l[unit_row_n]] + [trial_id_l[unit_row_n]] + [condition_id_l[unit_row_n]] + spikes_l
             writer.writerow(row)
 
 
@@ -117,14 +137,14 @@ if __name__ == "__main__":
     load_data = False
 
     preprocess_data = False
-    cut_interval = [0, 1000]
+    cut_interval = (0, 1500)  # in ms (should be in spikes time)
 
     bin_data = True
     bin_size_ms = 50
-    signal_len_fs = 1000  # in signal sampling frequency
+    signal_len_fs = 1500  # in signal sampling frequency
     fs = 1000
-    input_file_suffix = '1000ms_with_empty_fixation'
-    output_file_suffix = '1000ms_with_empty_fixation_binned_50ms'
+    input_file_suffix = '1500ms_with_empty_fixation'
+    output_file_suffix = '1500ms_with_empty_fixation_binned_50ms'
 
     if load_data:
         print('Loading data ...')
@@ -146,11 +166,12 @@ if __name__ == "__main__":
                                                                                                   n_units_pfp)
         # write in csv file
         output_filename_pfdl = results_folder + 'data_pfdl_fixon.csv'
-        write_csv(output_filename_pfdl, unit_id_pfdl_l, trial_id_pfdl_l, condition_id_pfdl_l, spike_trains_pfdl_l,
+        write_csv(output_filename_pfdl, unit_id_pfdl_l, trial_id_pfdl_l, condition_id_pfdl_l, [], [],
+                  spike_trains_pfdl_l,
                   convert_to_list=True, verbose=True)
 
         output_filename_pfp = results_folder + 'data_pfp_fixon.csv'
-        write_csv(output_filename_pfp, unit_id_pfp_l, trial_id_pfp_l, condition_id_pfp_l, spike_trains_pfp_l,
+        write_csv(output_filename_pfp, unit_id_pfp_l, trial_id_pfp_l, condition_id_pfp_l, [], [], spike_trains_pfp_l,
                   convert_to_list=True, verbose=True)
 
         # save number of trials in df
@@ -193,59 +214,71 @@ if __name__ == "__main__":
         print('N spike_trains in PFp fixON {}'.format(n_spike_trains_pfp))
 
         # cut the data
-        pfdl_no_empty_df, pfdl_no_empty_spike_trains_l = get_spikes_per_interval(sua_list_pfdl, 'pfdl',
-                                                                                 interval=cut_interval,
-                                                                                 include_empty_trials=False)
-        pfp_no_empty_df, pfp_no_empty_spike_trains_l = get_spikes_per_interval(sua_list_pfp, 'pfp',
-                                                                               interval=cut_interval,
-                                                                               include_empty_trials=False)
+        pfdl_no_empty = get_spikes_per_interval(sua_list_pfdl, cut_interval, fs, include_empty_trials_=False)
+        pfp_no_empty = get_spikes_per_interval(sua_list_pfp, cut_interval, fs, include_empty_trials_=False)
 
-        pfdl_with_empty_df, pfdl_with_empty_spike_trains_l = get_spikes_per_interval(sua_list_pfdl, 'pfdl',
-                                                                                     interval=cut_interval,
-                                                                                     include_empty_trials=True)
-        pfp_with_empty_df, pfp_with_empty_spike_trains_l = get_spikes_per_interval(sua_list_pfp, 'pfp',
-                                                                                   interval=cut_interval,
-                                                                                   include_empty_trials=True)
+        pfdl_with_empty = get_spikes_per_interval(sua_list_pfdl, cut_interval, fs, include_empty_trials_=True)
+        pfp_with_empty = get_spikes_per_interval(sua_list_pfp, cut_interval, fs, include_empty_trials_=True)
 
         # write in csv files
         output_filename_pfdl = results_folder + 'data_pfdl_fixon_' + str(cut_interval[1]) + 'ms_no_empty_fixation.csv'
-        write_csv(output_filename_pfdl, pfdl_no_empty_df['unit_id'].values,
-                  pfdl_no_empty_df['trial_id'].values, pfdl_no_empty_df['condition_id'].values,
-                  pfdl_no_empty_spike_trains_l, convert_to_list=False, verbose=False)
+        write_csv(output_filename_pfdl, pfdl_no_empty['unit_ids'],
+                  pfdl_no_empty['trial_ids'], pfdl_no_empty['condition_ids'],
+                  pfdl_no_empty['spike_counts'], pfdl_no_empty['firing_rates'],
+                  pfdl_no_empty['spike_trains'], convert_to_list=False, verbose=False)
 
         output_filename_pfdl = results_folder + 'data_pfdl_fixon_' + str(cut_interval[1]) + 'ms_with_empty_fixation.csv'
-        write_csv(output_filename_pfdl, pfdl_with_empty_df['unit_id'].values,
-                  pfdl_with_empty_df['trial_id'].values, pfdl_with_empty_df['condition_id'].values,
-                  pfdl_with_empty_spike_trains_l, convert_to_list=False, verbose=False)
+        write_csv(output_filename_pfdl, pfdl_with_empty['unit_ids'],
+                  pfdl_with_empty['trial_ids'], pfdl_with_empty['condition_ids'],
+                  pfdl_with_empty['spike_counts'], pfdl_with_empty['firing_rates'],
+                  pfdl_with_empty['spike_trains'], convert_to_list=False, verbose=False)
 
         output_filename_pfp = results_folder + 'data_pfp_fixon_' + str(cut_interval[1]) + 'ms_no_empty_fixation.csv'
-        write_csv(output_filename_pfp, pfp_no_empty_df['unit_id'].values,
-                  pfp_no_empty_df['trial_id'].values, pfp_no_empty_df['condition_id'].values,
-                  pfp_no_empty_spike_trains_l, convert_to_list=False, verbose=False)
+        write_csv(output_filename_pfp, pfp_no_empty['unit_ids'],
+                  pfp_no_empty['trial_ids'], pfp_no_empty['condition_ids'],
+                  pfp_no_empty['spike_counts'], pfp_no_empty['firing_rates'],
+                  pfp_no_empty['spike_trains'], convert_to_list=False, verbose=False)
 
         output_filename_pfp = results_folder + 'data_pfp_fixon_' + str(cut_interval[1]) + 'ms_with_empty_fixation.csv'
-        write_csv(output_filename_pfp, pfp_with_empty_df['unit_id'].values,
-                  pfp_with_empty_df['trial_id'].values, pfp_with_empty_df['condition_id'].values,
-                  pfp_with_empty_spike_trains_l, convert_to_list=False, verbose=False)
+        write_csv(output_filename_pfp, pfp_with_empty['unit_ids'],
+                  pfp_with_empty['trial_ids'], pfp_with_empty['condition_ids'],
+                  pfp_with_empty['spike_counts'], pfp_with_empty['firing_rates'],
+                  pfp_with_empty['spike_trains'], convert_to_list=False, verbose=False)
 
         # save number of trials in df
-        pfdl_n_trials_per_unit = pfdl_with_empty_df.groupby(by=['unit_id', 'area'], as_index=False)['trial_id'].count()
-        pfdl_n_trials_per_unit.rename(columns={'trial_id': 'n_trials_with_empty'}, inplace=True)
+        pfdl_n_trials_per_unit_with_empty = pd.DataFrame({
+            'unit_id': pfdl_with_empty['unit_ids'],
+            'area': ['pfdl'] * len(pfdl_with_empty['unit_ids']),
+            'trial_id': pfdl_with_empty['trial_ids']
+        }).groupby(by=['unit_id', 'area'], as_index=False)['trial_id'].count()
+        pfdl_n_trials_per_unit_with_empty.rename(columns={'trial_id': 'n_trials_with_empty'}, inplace=True)
 
-        pfdl_n_trials_per_unit_fix = pfdl_no_empty_df.groupby(by=['unit_id', 'area'], as_index=False)['trial_id'].count()
-        pfdl_n_trials_per_unit_fix.rename(columns={'trial_id': 'n_trials_no_empty'}, inplace=True)
+        pfdl_n_trials_per_unit_no_empty = pd.DataFrame({
+            'unit_id': pfdl_no_empty['unit_ids'],
+            'area': ['pfdl'] * len(pfdl_no_empty['unit_ids']),
+            'trial_id': pfdl_no_empty['trial_ids']
+        }).groupby(by=['unit_id', 'area'], as_index=False)['trial_id'].count()
+        pfdl_n_trials_per_unit_no_empty.rename(columns={'trial_id': 'n_trials_no_empty'}, inplace=True)
 
-        pfdl_n_trials_per_unit_merged = pfdl_n_trials_per_unit.merge(pfdl_n_trials_per_unit_fix, on=['unit_id', 'area'],
-                                                                     how='left')
+        pfdl_n_trials_per_unit_merged = pfdl_n_trials_per_unit_with_empty.merge(pfdl_n_trials_per_unit_no_empty,
+                                                                                on=['unit_id', 'area'], how='left')
 
-        pfp_n_trials_per_unit = pfp_with_empty_df.groupby(by=['unit_id', 'area'], as_index=False)['trial_id'].count()
-        pfp_n_trials_per_unit.rename(columns={'trial_id': 'n_trials_with_empty'}, inplace=True)
+        pfp_n_trials_per_unit_with_empty = pd.DataFrame({
+            'unit_id': pfp_with_empty['unit_ids'],
+            'area': ['pfdl'] * len(pfp_with_empty['unit_ids']),
+            'trial_id': pfp_with_empty['trial_ids']
+        }).groupby(by=['unit_id', 'area'], as_index=False)['trial_id'].count()
+        pfp_n_trials_per_unit_with_empty.rename(columns={'trial_id': 'n_trials_with_empty'}, inplace=True)
 
-        pfp_n_trials_per_unit_fix = pfp_no_empty_df.groupby(by=['unit_id', 'area'], as_index=False)['trial_id'].count()
-        pfp_n_trials_per_unit_fix.rename(columns={'trial_id': 'n_trials_no_empty'}, inplace=True)
+        pfp_n_trials_per_unit_no_empty = pd.DataFrame({
+            'unit_id': pfp_no_empty['unit_ids'],
+            'area': ['pfdl'] * len(pfp_no_empty['unit_ids']),
+            'trial_id': pfp_no_empty['trial_ids']
+        }).groupby(by=['unit_id', 'area'], as_index=False)['trial_id'].count()
+        pfp_n_trials_per_unit_no_empty.rename(columns={'trial_id': 'n_trials_no_empty'}, inplace=True)
 
-        pfp_n_trials_per_unit_merged = pfp_n_trials_per_unit.merge(pfp_n_trials_per_unit_fix, on=['unit_id', 'area'],
-                                                                   how='left')
+        pfp_n_trials_per_unit_merged = pfp_n_trials_per_unit_with_empty.merge(pfp_n_trials_per_unit_no_empty,
+                                                                              on=['unit_id', 'area'], how='left')
 
         pfdl_n_trials_per_unit_merged.to_pickle(results_folder + 'pfdl_n_trials_per_unit_fixation_'
                                                 + str(cut_interval[1]) + '.pkl')
@@ -271,31 +304,37 @@ if __name__ == "__main__":
         print('N spike_trains in PFp fixON {}'.format(n_spike_trains_pfp))
 
         # bin
-        unit_id_pfdl_l, trial_id_pfdl_l, condition_id_pfdl_l, spike_binned_pfdl_l = [], [], [], []
+        unit_id_pfdl_l, trial_id_pfdl_l, condition_id_pfdl_l, spike_count_pfdl_l, firing_rate_pfdl_l, spike_binned_pfdl_l = [], [], [], [], [], []
         for unit in sua_list_pfdl:
             unit_id_pfdl_l.append(unit[0])
             trial_id_pfdl_l.append(unit[1])
             condition_id_pfdl_l.append(unit[2])
-            spike_train = list(map(int, unit[3:]))
+            spike_count_pfdl_l.append(unit[3])
+            firing_rate_pfdl_l.append(unit[4])
+            spike_train = list(map(int, unit[5:]))
             binned_spike_train = bin_spike_train_fixed_len(spike_train, bin_size_ms, fs, signal_len_fs,
                                                            verbose_=False)
             spike_binned_pfdl_l.append(binned_spike_train)
 
-        unit_id_pfp_l, trial_id_pfp_l, condition_id_pfp_l, spike_binned_pfp_l = [], [], [], []
+        unit_id_pfp_l, trial_id_pfp_l, condition_id_pfp_l, spike_count_pfp_l, firing_rate_pfp_l, spike_binned_pfp_l = [], [], [], [], [], []
         for unit in sua_list_pfp:
             unit_id_pfp_l.append(unit[0])
             trial_id_pfp_l.append(unit[1])
             condition_id_pfp_l.append(unit[2])
-            spike_train = list(map(int, unit[3:]))
+            spike_count_pfp_l.append(unit[3])
+            firing_rate_pfp_l.append(unit[4])
+            spike_train = list(map(int, unit[5:]))
             binned_spike_train = bin_spike_train_fixed_len(spike_train, bin_size_ms, fs, signal_len_fs,
                                                            verbose_=False)
             spike_binned_pfp_l.append(binned_spike_train)
 
         # save in csv
         output_filename_pfdl = results_folder + 'data_pfdl_fixon_' + output_file_suffix + '.csv'
-        write_csv(output_filename_pfdl, unit_id_pfdl_l, trial_id_pfdl_l, condition_id_pfdl_l, spike_binned_pfdl_l,
+        write_csv(output_filename_pfdl, unit_id_pfdl_l, trial_id_pfdl_l, condition_id_pfdl_l, spike_count_pfdl_l,
+                  firing_rate_pfdl_l, spike_binned_pfdl_l,
                   convert_to_list=True, verbose=True)
 
         output_filename_pfp = results_folder + 'data_pfp_fixon_' + output_file_suffix + '.csv'
-        write_csv(output_filename_pfp, unit_id_pfp_l, trial_id_pfp_l, condition_id_pfp_l, spike_binned_pfp_l,
+        write_csv(output_filename_pfp, unit_id_pfp_l, trial_id_pfp_l, condition_id_pfp_l, spike_count_pfp_l,
+                  firing_rate_pfp_l, spike_binned_pfp_l,
                   convert_to_list=True, verbose=True)
