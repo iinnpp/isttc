@@ -37,7 +37,8 @@ def fit_single_exp(ydata_to_fit_, start_idx_=1):
     with warnings.catch_warnings():
         warnings.filterwarnings('error')
         try:
-            popt, pcov = curve_fit(func_single_exp, t[start_idx_:], ydata_to_fit_[start_idx_:], maxfev=5000)
+            # maxfev - I used 5000, now it is like in Siegle
+            popt, pcov = curve_fit(func_single_exp, t[start_idx_:], ydata_to_fit_[start_idx_:], maxfev=1000000000)
             fit_popt = popt
             fit_pcov = pcov
             tau = 1 / fit_popt[1]
