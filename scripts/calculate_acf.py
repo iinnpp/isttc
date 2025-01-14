@@ -39,11 +39,11 @@ def autocorr_pearsonr(signal_, lag_=1, verbose_=True):
 def acf_pearsonr(signal_, n_lags_=2, verbose_=True):
     """
     Autocorrelation function using Pearson correlation coefficient.
-    If n_lags_ >= signal_length then n_lags_ = signal_length-1. For example, is the signal_len = 20 then for lag 20
+    If n_lags_ >= signal_length then n_lags_ = signal_length-2. For example, is the signal_len = 20 then for lag 20
     there are no values to correlate and for the lag 19 there is only 1 value per array. In this case Pearson
-    is NaN because denominator is 0.
+    is NaN because denominator is 0. So the last lag to correlate is set to 18.
     ACF len is = n_lags_ + 1 for signal_length > n_lags_ + 1 (as in acf from statsmodels.tsa.stattools) otherwise
-    ACF len is = n_lags_(n_lags_ == len(signal_) - 1) or ACF len is = n_lags_-1 (n_lags_ >= len(signal_)).
+    ACF len is = len(signal_) - 1 (if n_lags_ >= len(signal_) or n_lags_ == len(signal_) - 1).
     :param signal_: numeric, 1d array.
     :param n_lags_: int, number of lags.
     :param verbose_: bool, default False, diagnostic printout if True, silent otherwise
@@ -51,7 +51,7 @@ def acf_pearsonr(signal_, n_lags_=2, verbose_=True):
     """
     acf_result = [1]
     if n_lags_ >= len(signal_):
-        n_lags = n_lags_ - 2
+        n_lags = len(signal_) - 2
         if verbose_:
             print('n_lags ({}) is >= signal length ({}). Setting n_lags to {}...'
                   .format(n_lags_, len(signal_), n_lags))
