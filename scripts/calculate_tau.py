@@ -21,10 +21,23 @@ def func_single_exp(x, a, b, c):
     return a * np.exp(-b * x) + c
 
 
-def fit_single_exp(ydata_to_fit_, start_idx_=1):
+def func_single_exp_monkey(x, a, b, c):
+    """
+    Exponential function to fit the data.
+    :param x: 1d array, independent variable
+    :param a: float, parameter to fit
+    :param b: float, parameter to fit
+    :param c: float, parameter to fit
+    :return: callable
+    """
+    return a * (np.exp(-b * x) + c)
+
+
+def fit_single_exp(ydata_to_fit_, start_idx_=1, exp_fun_=func_single_exp):
     """
     Fit function func_exp to data using non-linear least square.
 
+    :param exp_fun_:
     :param ydata_to_fit_: 1d array, the dependant data to fit
     :param start_idx_: int, index to start fitting from
     :return: fit_popt, fit_pcov, tau, fit_r_squared, log_message
@@ -35,12 +48,12 @@ def fit_single_exp(ydata_to_fit_, start_idx_=1):
         warnings.filterwarnings('error')
         try:
             # maxfev - I used 5000, now it is like in Siegle
-            popt, pcov = curve_fit(func_single_exp, t[start_idx_:], ydata_to_fit_[start_idx_:], maxfev=1000000000)
+            popt, pcov = curve_fit(exp_fun_, t[start_idx_:], ydata_to_fit_[start_idx_:], maxfev=1000000000)
             fit_popt = popt
             fit_pcov = pcov
             tau = 1 / fit_popt[1]
             # fit r-squared
-            y_pred = func_single_exp(t[start_idx_:], *popt)
+            y_pred = exp_fun_(t[start_idx_:], *popt)
             fit_r_squared = r2_score(ydata_to_fit_[start_idx_:], y_pred)
             log_message = 'ok'
         except RuntimeError as e:
