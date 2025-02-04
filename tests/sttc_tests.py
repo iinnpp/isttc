@@ -3,6 +3,7 @@ Compares results from elephant sttc with my implementation of sttc:
 * for sttc,
 * for ACF calculated with sttc.
 """
+
 import numpy as np
 import quantities as pq
 from elephant.spike_train_correlation import spike_time_tiling_coefficient
