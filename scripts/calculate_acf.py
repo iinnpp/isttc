@@ -211,6 +211,8 @@ def sttc_calculate_t(spiketrain_, n_spikes_, dt_, t_start_, t_stop_, verbose_=Tr
     """
     Calculate the proportion of the total recording time 'tiled' by spikes.
     """
+    if verbose_:
+        print(f'sttc_calculate_t  spiketrain {spiketrain_}, n spikes {n_spikes_}')
     if n_spikes_ == 0:
         return 0, 0
 
@@ -221,13 +223,18 @@ def sttc_calculate_t(spiketrain_, n_spikes_, dt_, t_start_, t_stop_, verbose_=Tr
 
     # Handle single spike case
     if n_spikes_ == 1:
+        if verbose_:
+            print('n spike 1')
         # Adjust for the first spike
         if spiketrain_[0] - t_start_ < dt_:
             time_abs += spiketrain_[0] - dt_ - t_start_
+            if verbose_:
+                print(f'n spike 1, adjustment for first spike: {time_abs}')
         # Adjust for the last spike
         if t_stop_ - spiketrain_[-1] < dt_:
-            time_abs = time_abs - dt_ - spiketrain_[0] + t_stop_
             time_abs += t_stop_ - (spiketrain_[-1] + dt_)
+            if verbose_:
+                print(f'n spike 1, adjustment for last spike: {time_abs}')
 
     else:  # Multiple spikes case
         diff = np.diff(spiketrain_)
@@ -239,6 +246,9 @@ def sttc_calculate_t(spiketrain_, n_spikes_, dt_, t_start_, t_stop_, verbose_=Tr
         # Adjust for the last spike
         if t_stop_ - spiketrain_[-1] < dt_:
             time_abs += t_stop_ - (spiketrain_[-1] + dt_)
+
+    if verbose_:
+        print(f'Adjusted time_abs: {time_abs}')
 
     # Calculate the proportion of the total recording time
     time_prop = time_abs / (t_stop_ - t_start_)
@@ -636,6 +646,82 @@ def acf_sttc_trial_concat(spike_train_l_: list, n_lags_: int, lag_shift_: int, s
         # Calculate sttc for the shifted signals
         isttc = sttc_fixed_2t(spike_trial_1_concat, spike_trial_2_concat, dt_=sttc_dt_,
                               t_a_=time_prop_sum_shift_1, t_b_=time_prop_sum_shift_2, verbose_=verbose_)
+        acf_l.append(isttc)
+
+    return acf_l
+
+
+def acf_sttc_trial_concat_global(spike_train_l_: list, n_lags_: int, lag_shift_: int, sttc_dt_: int,
+                          trial_len_: int, zero_padding_len_: int, verbose_: bool = True) -> np.ndarray:
+    """
+    Autocorrelation calculated on concatenated trials. Trials are concatenated with zero padding. For the time lags
+    the trials are shifted and then concatenated again with zero padding.
+    T term (absolute time) is calculated for trials, summed up and divided by the signal len(sum of trial len
+    without zero padding). T is calculated per time lag (on shifted trials).
+
+    :param spike_train_l_: list of spike trains, every element of the list contains spikes from 1 trial, length of the
+    list is equal to the number of trials. Spike times are realigned (each trial starts at time 0).
+    :param n_lags_: int, number of lags
+    :param lag_shift_: int, shift for a time lag (in time points)
+    :param sttc_dt_: int, dt parameter for STTC calculation
+    :param trial_len_: int, len of a trial (in time points). All trials have the same length.
+    :param zero_padding_len_: int, len of zero padding (in time points).
+    :param verbose_: bool, default False, diagnostic printout if True, silent otherwise
+    :return: 1d array, autocorrelation function.
+    """
+
+    def concatenate_trials_with_padding(spike_train_l, padding_len):
+        concatenated = np.asarray(spike_train_l[0])
+        for idx_spike_train, spike_train in enumerate(spike_train_l[1:], start=1):
+            concatenated = np.hstack((concatenated, np.asarray(spike_train) + idx_spike_train * padding_len))
+        return concatenated
+
+    def calculate_t_term(spike_train_l, trial_len, dt, verbose):
+        abs_time_sum = sum(sttc_calculate_t(spike_train, len(spike_train), dt, 0, trial_len, verbose)[0]
+                           for spike_train in spike_train_l)
+        return abs_time_sum / (len(spike_train_l) * trial_len)
+
+    if verbose_:
+        print('Processing {} trials: n lags {}, lag shift {}, sttc dt {}, zero padding len {}'.
+              format(len(spike_train_l_), n_lags_, lag_shift_, sttc_dt_, zero_padding_len_))
+
+    # calculate for the non-shifted signal (lag 0)
+    spike_train_concat = concatenate_trials_with_padding(spike_train_l_, zero_padding_len_)
+    time_proc_sum = calculate_t_term(spike_train_l_, trial_len_, sttc_dt_, verbose_)
+    sttc_no_shift = sttc_fixed_2t(spike_train_concat, spike_train_concat, dt_=sttc_dt_,
+                                  t_a_=time_proc_sum, t_b_=time_proc_sum, verbose_=verbose_)
+    acf_l = [sttc_no_shift]
+
+    # generate signal shifts
+    if lag_shift_ * n_lags_ == trial_len_:
+        shifts_l = np.linspace(lag_shift_, lag_shift_ * (n_lags_ - 1), n_lags_ - 1).astype(int)
+    else:
+        shifts_l = np.linspace(lag_shift_, lag_shift_ * n_lags_, n_lags_).astype(int)
+    if verbose_:
+        print('Generated lag shifts: {}'.format(shifts_l))
+
+    # calculated for shifted signal
+    for shift in shifts_l:
+        if verbose_:
+            print('Calculating sttc for lag shift {}'.format(shift))
+        # Get shifted spike trains
+        spike_train_1_shifted_l, spike_train_2_shifted_l = [], []
+        for idx, trial in enumerate(spike_train_l_, start=0):
+            spike_train_1_shifted_l.append(list(trial[trial >= shift] - shift))
+            spike_train_2_shifted_l.append(list(trial[trial < trial_len_ - shift]))
+        # Concatenate shifted spike trains
+        spike_trial_1_concat = concatenate_trials_with_padding(spike_train_1_shifted_l, zero_padding_len_)
+        spike_trial_2_concat = concatenate_trials_with_padding(spike_train_2_shifted_l, zero_padding_len_)
+        if verbose_:
+            print('spike_1 {}, spike_2 {}'.format(spike_trial_1_concat.shape, spike_trial_2_concat.shape))
+            print(spike_trial_1_concat)
+            print(spike_trial_2_concat)
+        # Calculate T term for sttc
+        #time_prop_sum_shift_1 = calculate_t_term(spike_train_1_shifted_l, trial_len_ - shift, sttc_dt_, verbose_)
+        #time_prop_sum_shift_2 = calculate_t_term(spike_train_2_shifted_l, trial_len_ - shift, sttc_dt_, verbose_)
+        # Calculate sttc for the shifted signals
+        isttc = sttc_fixed_2t(spike_trial_1_concat, spike_trial_2_concat, dt_=sttc_dt_,
+                              t_a_=time_proc_sum, t_b_=time_proc_sum, verbose_=verbose_)
         acf_l.append(isttc)
 
     return acf_l
