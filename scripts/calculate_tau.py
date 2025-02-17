@@ -75,3 +75,51 @@ def fit_single_exp(ydata_to_fit_, start_idx_=1, exp_fun_=func_single_exp):
             log_message = 'ValueError'
 
     return fit_popt, fit_pcov, tau, fit_r_squared, log_message
+
+
+def fit_single_exp_2d(ydata_to_fit_2d_, start_idx_=1, exp_fun_=func_single_exp):
+    """
+    Fit function func_exp to data using non-linear least square.
+
+    :param exp_fun_:
+    :param ydata_to_fit_2d_: 1d array, the dependant data to fit
+    :param start_idx_: int, index to start fitting from
+    :return: fit_popt, fit_pcov, tau, fit_r_squared, log_message
+    """
+
+    t = np.linspace(start_idx_, ydata_to_fit_2d_.shape[1] - 1, ydata_to_fit_2d_.shape[1] - start_idx_).astype(int)
+    # make 1d for curve_fit
+    acf_1d = np.hstack(ydata_to_fit_2d_[:, start_idx_:])
+    t_1d = np.tile(t, reps=ydata_to_fit_2d_.shape[0])
+
+    with warnings.catch_warnings():
+        warnings.filterwarnings('error')
+        try:
+            # maxfev - I used 5000, now it is like in Siegle
+            popt, pcov = curve_fit(exp_fun_, t_1d, acf_1d, maxfev=1000000000)
+            fit_popt = popt
+            fit_pcov = pcov
+            tau = 1 / fit_popt[1]
+            # fit r-squared
+            y_pred = exp_fun_(t_1d, *popt)
+            fit_r_squared = r2_score(acf_1d, y_pred)
+            log_message = 'ok'
+        except RuntimeError as e:
+            print('RuntimeError: {}'.format(e))
+            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
+            log_message = 'RuntimeError'
+        except OptimizeWarning as o:
+            print('OptimizeWarning: {}'.format(o))
+            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
+            log_message = 'OptimizeWarning'
+        except RuntimeWarning as re:
+            print('RuntimeWarning: {}'.format(re))
+            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
+            log_message = 'RuntimeWarning'
+        except ValueError as ve:
+            print('ValueError: {}'.format(ve))
+            print('Possible reason: acf contains NaNs, low spike count')
+            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
+            log_message = 'ValueError'
+
+    return fit_popt, fit_pcov, tau, fit_r_squared, log_message
