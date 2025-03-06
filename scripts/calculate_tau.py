@@ -107,6 +107,7 @@ def deprecated_fit_single_exp(ydata_to_fit_, start_idx_=1, exp_fun_=func_single_
 def fit_single_exp(ydata_to_fit_, start_idx_=1, exp_fun_=func_single_exp):
     """
     Fit an exponential function to data using non-linear least squares.
+    Confidence interval is estimated using Student's t-distribution.
 
     :param ydata_to_fit_: 1D array, dependent data to fit
     :param start_idx_: int, index to start fitting from (default: 1)
@@ -143,7 +144,7 @@ def fit_single_exp(ydata_to_fit_, start_idx_=1, exp_fun_=func_single_exp):
             # Compute Explained Variance Score
             explained_var = explained_variance_score(ydata_to_fit_[start_idx_:], y_pred)
 
-            log_message = "Fit successful"
+            log_message = "ok"
         except RuntimeError as e:
             print('RuntimeError: {}'.format(e))
             fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var = np.nan, np.nan, np.nan, (
@@ -172,6 +173,7 @@ def fit_single_exp(ydata_to_fit_, start_idx_=1, exp_fun_=func_single_exp):
 def fit_single_exp_2d(ydata_to_fit_2d_, start_idx_=1, exp_fun_=func_single_exp):
     """
     Fit function func_exp to data using non-linear least square.
+    Confidence interval is estimated using normal distribution.
 
     :param exp_fun_:
     :param ydata_to_fit_2d_: 1d array, the dependant data to fit
@@ -191,27 +193,41 @@ def fit_single_exp_2d(ydata_to_fit_2d_, start_idx_=1, exp_fun_=func_single_exp):
             popt, pcov = curve_fit(exp_fun_, t_1d, acf_1d, maxfev=1000000000)
             fit_popt = popt
             fit_pcov = pcov
-            tau = 1 / fit_popt[1]
-            # fit r-squared
+            tau = fit_popt[1]
+
+            # Compute confidence interval for tau using normal distribution
+            if not np.isnan(pcov[1, 1]):
+                tau_variance = pcov[1, 1]  # variance from the covariance matrix
+                tau_std_err = np.sqrt(tau_variance)  # standard error
+            else:
+                tau_variance, tau_std_err = np.nan, np.nan
+            z_score = stats.norm.ppf(0.975)  # 95% confidence level
+            tau_ci = (tau - z_score * tau_std_err, tau + z_score * tau_std_err) if not np.isnan(tau_std_err) \
+                else (np.nan, np.nan)
+
+            # Compute R-squared score
             y_pred = exp_fun_(t_1d, *popt)
             fit_r_squared = r2_score(acf_1d, y_pred)
+
+            # Compute Explained Variance Score
+            explained_var = explained_variance_score(acf_1d, y_pred)
             log_message = 'ok'
         except RuntimeError as e:
             print('RuntimeError: {}'.format(e))
-            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
+            fit_popt, fit_pcov, tau, tau_ci, tau_variance, fit_r_squared, fit_explained_var = np.nan, np.nan, np.nan, (np.nan, np.nan), np.nan, np.nan, np.nan
             log_message = 'RuntimeError'
         except OptimizeWarning as o:
             print('OptimizeWarning: {}'.format(o))
-            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
+            fit_popt, fit_pcov, tau, tau_ci, tau_variance, fit_r_squared, fit_explained_var = np.nan, np.nan, np.nan, (np.nan, np.nan), np.nan, np.nan, np.nan
             log_message = 'OptimizeWarning'
         except RuntimeWarning as re:
             print('RuntimeWarning: {}'.format(re))
-            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
+            fit_popt, fit_pcov, tau, tau_ci, tau_variance, fit_r_squared, fit_explained_var = np.nan, np.nan, np.nan, (np.nan, np.nan), np.nan, np.nan, np.nan
             log_message = 'RuntimeWarning'
         except ValueError as ve:
             print('ValueError: {}'.format(ve))
             print('Possible reason: acf contains NaNs, low spike count')
-            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
+            fit_popt, fit_pcov, tau, tau_ci, tau_variance, fit_r_squared, fit_explained_var = np.nan, np.nan, np.nan, (np.nan, np.nan), np.nan, np.nan, np.nan
             log_message = 'ValueError'
 
-    return fit_popt, fit_pcov, tau, fit_r_squared, log_message
+    return fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message
