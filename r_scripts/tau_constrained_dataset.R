@@ -10,30 +10,77 @@ library('emmeans')
 library('ggplot2')
 #library('lmerTest')
 
-df <- import("E:/projects_q_30_10_2024/isttc/results/monkey/fixation_period_1000ms/stats/tau_average_trial_sttc_and_pearson_constrained_dataset_with_empty_0_1000_51padding_df.csv")
+df <- import("Q:\\Personal\\Irina\\projects\\isttc\\results\\monkey\\fixation_period_1000ms_no_empty\\acf_tau_full_df.csv")
 
-df$metric <- factor(df$metric)
-df$area_unit_id <- factor(df$area_unit_id)
+df$method <- as.factor(df$method)
+df$area <- as.factor(df$area)
+df$unit_id <- as.factor(df$unit_id)
 
-# fit the model
-df$metric <- relevel(df$metric, ref='pearson')
-model_lin_v1 <- lmer(tau_ms_log10 ~ metric + (1 | area_unit_id), data=df)
-summary(model_lin_v1)
-confint(model_lin_v1)
+df_clean <- na.omit(df[df$decline_150_250 == TRUE, c("tau_ms", "method", "area", "unit_id", "tau_ms_log_10")])
+df_clean$unique_id <- interaction(df_clean$area, df_clean$unit_id)
 
-plot_model(model_lin_v1, type='pred', terms=c('metric'), ci.lvl = .95)
+lmm <- lmer(tau_ms_log_10 ~ method + (1 | unique_id), data = df_clean)
+summary(lmm)  
+anova(lmm, type="III")  
 
-plot_model(
-  model_lin_v1, 
-  show.values = TRUE,
-  value.offset = .4,
-  value.size = 4,
-  dot.size = 2,
-  line.size = 0.4,
-  vline.color = "blue",
-  vline.size = 0.1,
-  width = 0.2
-) 
+emmeans(lmm, pairwise ~ method, adjust = "tukey")
 
-#+ scale_y_continuous(limits = c(0.0, 0.05))
+
+# Get estimated marginal means (EMMs) for method
+emm_results <- emmeans(lmm, ~ method)
+
+# Convert to dataframe for ggplot
+emm_df <- as.data.frame(emm_results)
+
+# Plot estimated effects
+ggplot(emm_df, aes(x = method, y = emmean, ymin = lower.CL, ymax = upper.CL)) +
+  geom_point(size = 3, color = "black") +  # Mean points
+  geom_errorbar(width = 0.2, color = "black") +  # Confidence intervals
+  labs(x = "Method", y = "Estimated tau_ms (log scale)", 
+       title = "Effect of Method on tau_ms") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+library(rstatix)  # For significance brackets
+
+# Get estimated marginal means (EMMs) for method
+emm_results <- emmeans(lmm, ~ method)
+
+# Convert to dataframe for plotting
+emm_df <- as.data.frame(emm_results)
+
+# Pairwise comparisons with Tukey correction
+pairs_results <- pairs(emm_results, adjust = "tukey")
+pairs_df <- as.data.frame(pairs_results)
+
+# Add significance labels based on p-values
+pairs_df$significance <- cut(pairs_df$p.value, 
+                             breaks = c(-Inf, 0.001, 0.01, 0.05, Inf), 
+                             labels = c("***", "**", "*", "ns"))
+
+# Create significance brackets for ggplot
+sig_brackets <- data.frame(
+  x1 = pairs_df$contrast,  # First method
+  x2 = pairs_df$contrast,  # Second method
+  y = max(emm_df$emmean) + 0.2,  # Adjust height
+  label = pairs_df$significance
+)
+
+# Plot estimated effects with significance
+ggplot(emm_df, aes(x = method, y = emmean, ymin = lower.CL, ymax = upper.CL)) +
+  geom_point(size = 3, color = "black") +  # Mean points
+  geom_errorbar(width = 0.2, color = "black") +  # Confidence intervals
+  labs(x = "Method", y = "Estimated tau_ms (log scale)", title = "Effect of Method on tau_ms") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_signif(comparisons = list(c("pearsonr_trial_avg", "STTC_trial_avg"),
+                                 c("pearsonr_trial_avg", "STTC_trial_concat"),
+                                 c("STTC_trial_avg", "STTC_trial_concat")),
+              map_signif_level = TRUE, 
+              test = "t.test")  # Adds significance brackets
+
+
+
+
 
