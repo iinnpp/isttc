@@ -7,7 +7,4 @@ dependencies:
   - numpy
   - pandas
   - scipy
-  - pip:
-      - neo
-      - quantities
-      - elephant
+  - notebook
