@@ -8,6 +8,7 @@ from statsmodels.tsa.stattools import acf
 from scripts.calculate_acf import acf_sttc, acf_pearsonr_trial_avg, acf_sttc_trial_avg, acf_sttc_trial_concat
 from scripts.calculate_tau import fit_single_exp
 from scripts.spike_train_utils import bin_spike_train_fixed_len, get_trials, bin_trials
+from scripts.cfg_global import project_folder_path
 
 
 def write_sua_csv(csv_file_name_, sua_list_original_, sua_list_new_, verbose_=False):
@@ -33,25 +34,28 @@ def write_sua_csv(csv_file_name_, sua_list_original_, sua_list_new_, verbose_=Fa
                 print('Writing unit {}'.format(unit_row_n))
             spike_train_l = spike_train.tolist()
             row = [sua_list_original_[unit_row_n][0]] + [sua_list_original_[unit_row_n][1]] \
-                  + [sua_list_original_[unit_row_n][2]] + [sua_list_original_[unit_row_n][3]] + spike_train_l
+                  + [sua_list_original_[unit_row_n][2]] + [sua_list_original_[unit_row_n][3]] \
+                  + [sua_list_original_[unit_row_n][4]] + [sua_list_original_[unit_row_n][5]] \
+                  + [sua_list_original_[unit_row_n][6]] + [sua_list_original_[unit_row_n][7]] \
+                  + spike_train_l
             writer.writerow(row)
 
 
 if __name__ == "__main__":
     # data_folder = 'Q:\\Personal\\Irina\\projects\\isttc\\results\\allen_mice\\'
-    data_folder = 'D:\\isttc\\results\\allen_mice\\'
+    data_folder = project_folder_path + 'results\\allen_mice\\'
     fs = 30000  # neuropixels
 
-    trim_spikes = False
+    trim_spikes = True
     bin_spikes = False
     calculate_acf = False
     calculate_tau = False
-    calculate_trials = True
+    calculate_trials = False
 
     min_to_keep = 30
 
     if trim_spikes:
-        csv_data_file = data_folder + 'dataset\\allen_func_conn_around30min_spont.csv'
+        csv_data_file = data_folder + 'dataset\\allen_func_conn_around30min_spont_with_quality_metrics.csv'
         with open(csv_data_file, newline='') as f:
             reader = csv.reader(f)
             sua_list = list(reader)
@@ -60,7 +64,7 @@ if __name__ == "__main__":
         # use first min_to_keep of the signal
         sua_list_trimmed = []
         for i in range(len(sua_list)):
-            spike_train_ = np.asarray(sua_list[i][4:]).astype(float)
+            spike_train_ = np.asarray(sua_list[i][8:]).astype(float)
             spike_train_fs = spike_train_ * fs  # csv is in sec
             spike_train_fs_int = spike_train_fs.astype(int)
             n_spikes_out = np.count_nonzero(spike_train_fs_int >= min_to_keep * 60 * fs)
@@ -89,7 +93,7 @@ if __name__ == "__main__":
             print(f'processing {k}')
             sua_list_binned_l = []
             for j in range(len(sua_list)):
-                binned_spike_train = bin_spike_train_fixed_len([int(spike) for spike in sua_list[j][4:]],
+                binned_spike_train = bin_spike_train_fixed_len([int(spike) for spike in sua_list[j][8:]],
                                                                v['bin_size'], fs, signal_len,
                                                                verbose_=True)
                 sua_list_binned_l.append(binned_spike_train)
@@ -146,7 +150,7 @@ if __name__ == "__main__":
                     for spike_train_idx, spike_train in enumerate(sua_list):
                         if spike_train_idx % 100 == 0:
                             print(f'Processing unit {spike_train_idx}')
-                        spike_train_int = np.asarray([int(spike) for spike in spike_train[4:]])
+                        spike_train_int = np.asarray([int(spike) for spike in spike_train[8:]])
                         lag_shift = int(v['bin_size'] * (fs / 1000)) + 1
                         sttc_dt = int(v['bin_size'] * (fs / 1000))
                         # print(lag_shift, sttc_dt)
@@ -171,7 +175,7 @@ if __name__ == "__main__":
                     for spike_train_binned_idx, spike_train_binned in enumerate(sua_list_binned):
                         if spike_train_binned_idx % 100 == 0:
                             print(f'Processing unit {spike_train_binned_idx}')
-                        spike_train_binned_int = np.asarray([int(spike) for spike in spike_train_binned[4:]])
+                        spike_train_binned_int = np.asarray([int(spike) for spike in spike_train_binned[8:]])
                         spike_train_binned_acf = acf(spike_train_binned_int, nlags=v['n_lags'])
                         acf_full_l.append(spike_train_binned_acf)
 
@@ -201,7 +205,7 @@ if __name__ == "__main__":
             unit_id_l.append(sua_list[i][2])
             if i % 100 == 0:
                 print(f'Processing unit {i}')
-            spike_times = np.asarray([int(spike) for spike in sua_list[i][4:]])
+            spike_times = np.asarray([int(spike) for spike in sua_list[i][8:]])
 
             # on trials
             n_stims = 50
