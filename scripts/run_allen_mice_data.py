@@ -46,8 +46,8 @@ if __name__ == "__main__":
     data_folder = project_folder_path + 'results\\allen_mice\\'
     fs = 30000  # neuropixels
 
-    trim_spikes = True
-    bin_spikes = False
+    trim_spikes = False
+    bin_spikes = True
     calculate_acf = False
     calculate_tau = False
     calculate_trials = False
@@ -83,7 +83,7 @@ if __name__ == "__main__":
                        '75ms': {'bin_size': 75, 'bin_size_suffix': '75ms', 'calc': True},
                        '100ms': {'bin_size': 100, 'bin_size_suffix': '100ms', 'calc': True}
                        }
-        csv_data_file = data_folder + 'dataset\\cut_30min\\sua_list.csv'
+        csv_data_file = data_folder + 'dataset\\cut_30min\\sua_list_constrained.csv'
         with open(csv_data_file, newline='') as f:
             reader = csv.reader(f)
             sua_list = list(reader)
@@ -98,7 +98,7 @@ if __name__ == "__main__":
                                                                verbose_=True)
                 sua_list_binned_l.append(binned_spike_train)
 
-            write_sua_csv(data_folder + 'dataset\\cut_30min\\sua_list_binned_' + k + '.csv',
+            write_sua_csv(data_folder + 'dataset\\cut_30min\\sua_list_constrained_binned_' + k + '.csv',
                           sua_list, sua_list_binned_l, verbose_=True)
 
     if calculate_acf:
