@@ -1,12 +1,12 @@
 import numpy as np
-import pandas as pd
+import pickle
 import csv
 import os
-from random import randrange
+import sys
 from statsmodels.tsa.stattools import acf
 
 from scripts.calculate_acf import acf_sttc, acf_pearsonr_trial_avg, acf_sttc_trial_avg, acf_sttc_trial_concat
-from scripts.calculate_tau import fit_single_exp
+from scripts.calculate_tau import fit_single_exp, func_single_exp_monkey
 from scripts.spike_train_utils import bin_spike_train_fixed_len, get_trials, bin_trials
 from scripts.cfg_global import project_folder_path
 
@@ -42,15 +42,13 @@ def write_sua_csv(csv_file_name_, sua_list_original_, sua_list_new_, verbose_=Fa
 
 
 if __name__ == "__main__":
-    # data_folder = 'Q:\\Personal\\Irina\\projects\\isttc\\results\\allen_mice\\'
     data_folder = project_folder_path + 'results\\allen_mice\\'
     fs = 30000  # neuropixels
 
     trim_spikes = False
-    bin_spikes = True
+    bin_spikes = False
     calculate_acf = False
-    calculate_tau = False
-    calculate_trials = False
+    calculate_trials = True
 
     min_to_keep = 30
 
@@ -184,82 +182,75 @@ if __name__ == "__main__":
 
     if calculate_trials:
         signal_len = int(30 * 60 * fs)
-        n_trials = 50
-        num_lags = 20
-        bin_size = 50 # in ms
-        trial_len = int(num_lags * bin_size * (fs/1000))
+        n_lags = 20
+        bin_size = 50  # in ms
+        sttc_dt = int(49 * (fs / 1000))
+        trial_len = int(n_lags * bin_size * (fs / 1000))
 
-        csv_data_file = data_folder + 'dataset\\cut_30min\\sua_list.csv'
+        n_trials = 40  # this is fixed based on experimental datasets
+        m_iterations = 1000
+
+        csv_data_file = data_folder + 'dataset\\cut_30min\\sua_list_constrained.csv'
         print(f'Loading file {csv_data_file}')
         with open(csv_data_file, newline='') as f:
             reader = csv.reader(f)
             sua_list = list(reader)
         print(f'Loaded N units {len(sua_list)}')
 
-        pearsonr_avg_trial_med = []
-        sttc_avg_trial_med = []
-        sttc_concat_trial_med = []
+        pearsonr_trial_avg_dict = {}
+        sttc_trial_avg_dict = {}
+        sttc_trial_concat_dict = {}
 
-        unit_id_l = []
-        for i in range(len(sua_list)):
-            unit_id_l.append(sua_list[i][2])
-            if i % 100 == 0:
-                print(f'Processing unit {i}')
-            spike_times = np.asarray([int(spike) for spike in sua_list[i][8:]])
+        output_log = data_folder + '\\dataset\\cut_30min\\trials_tau_log.txt'
+        old_stdout = sys.stdout
+        sys.stdout = open(output_log, 'w')
+
+        for i in range(2):
+            print(f'#####\nProcessing unit {i}')
+            spikes = np.asarray([int(spike) for spike in sua_list[i][8:]])
 
             # on trials
-            n_stims = 50
             pearson_avg_l, sttc_avg_l, sttc_concat_l = [], [], []
-            stim_l = []
-
-            for j in range(n_stims):
-                # print(f'Run {j}')
-                spikes_trials_stim = get_trials(spike_times, signal_len, n_trials, trial_len, verbose_=False)
-                spikes_trials_binned_stim = bin_trials(spikes_trials_stim, trial_len, int(bin_size*(fs/1000)))
+            for m in range(m_iterations):
+                if (m % 50) == 0:
+                    print(f'Sampling iteration {m}')
+                spikes_trials = get_trials(spikes, signal_len, n_trials, trial_len, verbose_=False)
+                spikes_trials_binned = bin_trials(spikes_trials, trial_len, int(bin_size*(fs/1000)))
 
                 # Pearson trial-average
-                acf_matrix_trail_avg, acf_average_trial_avg = acf_pearsonr_trial_avg(spikes_trials_binned_stim,
-                                                                                     n_lags_=num_lags, verbose_=False)
-                fit_popt, fit_pcov, spike_train_trial_avg_tau, fit_r_squared = fit_single_exp(acf_average_trial_avg, start_idx_=1)
-                spike_train_trial_avg_tau_ms = spike_train_trial_avg_tau * bin_size
-                # print(spike_train_trial_avg_tau_ms)
+                print('Pearsonr...')
+                _, pearsonr_acf_average = acf_pearsonr_trial_avg(spikes_trials_binned, n_lags, verbose_=False)
+                _, _, pearsonr_tau, _, _, _, _ = fit_single_exp(pearsonr_acf_average, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                pearson_avg_l.append(pearsonr_tau)
 
                 # STTC trial-average
-                lag_shift = int(bin_size * (fs / 1000)) + 1
-                sttc_dt = int(bin_size * (fs / 1000))
-                sttc_matrix_trail_avg, sttc_average_trial_avg = acf_sttc_trial_avg(spikes_trials_stim,
-                                                                                   n_lags_=num_lags,
-                                                                                   lag_shift_=lag_shift,
-                                                                                   sttc_dt_=sttc_dt,
-                                                                                   zero_padding_len_=int(150 * (fs / 1000)),
-                                                                                   verbose_=False)
-                fit_popt, fit_pcov, spike_train_trial_avg_sttc_tau, fit_r_squared = fit_single_exp(sttc_average_trial_avg, start_idx_=1)
-                spike_train_trial_avg_sttc_tau_ms = spike_train_trial_avg_sttc_tau * bin_size
-                # print(spike_train_trial_avg_sttc_tau_ms)
+                print('STTC avg...')
+                _, sttc_acf_average = acf_sttc_trial_avg(spikes_trials, n_lags_=n_lags, lag_shift_=bin_size, sttc_dt_=sttc_dt,
+                                                             zero_padding_len_=int(150 * (fs / 1000)), verbose_=False)
+                _, _, sttc_tau, _, _, _, _ = fit_single_exp(sttc_acf_average, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                sttc_avg_l.append(sttc_tau)
 
-                # STTC concat v3
-                acf_sttc_trials_concat = acf_sttc_trial_concat(spikes_trials_stim,
-                                                               n_lags_=num_lags,
-                                                               lag_shift_=lag_shift,
-                                                               sttc_dt_=sttc_dt,
-                                                               trial_len_=trial_len,
-                                                               zero_padding_len_=int(2000 * (fs / 1000)),
-                                                               verbose_=False)
-                fit_popt, fit_pcov, spike_train_trial_concat_sttc_tau, fit_r_squared = fit_single_exp(acf_sttc_trials_concat, start_idx_=1)
-                spike_train_trial_concat_sttc_tau_ms = spike_train_trial_concat_sttc_tau * bin_size
-                # print(spike_train_trial_concat_sttc_v2_tau_ms)
+                # STTC concat
+                print('STTC concat...')
+                acf_concat = acf_sttc_trial_concat(spikes_trials, n_lags_=n_lags, lag_shift_=bin_size, sttc_dt_=sttc_dt,
+                                                   trial_len_=trial_len,
+                                                   zero_padding_len_=int(3000 * (fs / 1000)), verbose_=False)
+                _, _, concat_tau, _, _, _, _ = fit_single_exp(acf_concat, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                sttc_concat_l.append(concat_tau)
 
-                stim_l.append(j)
-                pearson_avg_l.append(spike_train_trial_avg_tau_ms)
-                sttc_avg_l.append(spike_train_trial_avg_sttc_tau_ms)
-                sttc_concat_l.append(spike_train_trial_concat_sttc_tau_ms)
+            pearsonr_trial_avg_dict[sua_list[i][2]] = pearson_avg_l
+            sttc_trial_avg_dict[sua_list[i][2]] = sttc_avg_l
+            sttc_trial_concat_dict[sua_list[i][2]] = sttc_concat_l
 
-            pearsonr_avg_trial_med.append(np.nanmedian(pearson_avg_l))
-            sttc_avg_trial_med.append(np.nanmedian(sttc_avg_l))
-            sttc_concat_trial_med.append(np.nanmedian(sttc_concat_l))
+        sys.stdout = old_stdout
 
-        tau_df = pd.DataFrame(np.vstack((unit_id_l, pearsonr_avg_trial_med, sttc_avg_trial_med, sttc_concat_trial_med)).T,
-                              columns=['unit_id', 'pearsonr_avg_trial_med', 'sttc_avg_trial_med', 'sttc_concat_trial_med'])
+        with open(data_folder + '\\dataset\\cut_30min\\binned\\taus\\pearsonr_trial_avg_tau_dict.pkl', "wb") as f:
+            pickle.dump(pearsonr_trial_avg_dict, f)
 
-        tau_df.to_pickle(data_folder + 'dataset\\cut_30min\\trials_50_50_1000ms.pkl')
+        with open(data_folder + '\\dataset\\cut_30min\\non_binned\\taus\\sttc_trial_avg_dict.pkl', "wb") as f:
+            pickle.dump(sttc_trial_avg_dict, f)
+
+        with open(data_folder + '\\dataset\\cut_30min\\non_binned\\taus\\sttc_trial_concat_dict.pkl', "wb") as f:
+            pickle.dump(sttc_trial_concat_dict, f)
+
 
