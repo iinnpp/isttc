@@ -210,7 +210,7 @@ def fit_single_exp_2d(ydata_to_fit_2d_, start_idx_=1, exp_fun_=func_single_exp):
             fit_r_squared = r2_score(acf_1d, y_pred)
 
             # Compute Explained Variance Score
-            explained_var = explained_variance_score(acf_1d, y_pred)
+            fit_explained_var = explained_variance_score(acf_1d, y_pred)
             log_message = 'ok'
         except RuntimeError as e:
             print('RuntimeError: {}'.format(e))
@@ -230,4 +230,4 @@ def fit_single_exp_2d(ydata_to_fit_2d_, start_idx_=1, exp_fun_=func_single_exp):
             fit_popt, fit_pcov, tau, tau_ci, tau_variance, fit_r_squared, fit_explained_var = np.nan, np.nan, np.nan, (np.nan, np.nan), np.nan, np.nan, np.nan
             log_message = 'ValueError'
 
-    return fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message
+    return fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, fit_explained_var, log_message

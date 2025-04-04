@@ -208,8 +208,8 @@ if __name__ == "__main__":
 
         print('Starting ...')
 
-        for i in range(len(sua_list)):
-            print(f'#####\nProcessing unit {i}/{len(sua_list)}, {np.round(i/len(sua_list) * 100)} done, {datetime.now()}')
+        for i in range(2000,4000):
+            print(f'#####\nProcessing unit {i}/{2000}, {np.round((i-2000)/2000 * 100)} done, {datetime.now()}')
 
             spikes = np.asarray([int(spike) for spike in sua_list[i][8:]])
 
@@ -225,26 +225,10 @@ if __name__ == "__main__":
 
                 # Pearson trial-average
                 #print('Pearsonr...')
-                pearsonr_acf_matrix, pearsonr_acf_average = acf_pearsonr_trial_avg(spikes_trials_binned, n_lags, verbose_=False)
-                fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(pearsonr_acf_average,
-                                                                                          start_idx_=1, exp_fun_=func_single_exp_monkey)
-                pearson_avg_l.append({'tau':tau,
-                                      'tau_lower':tau_ci[0],
-                                      'tau_upper':tau_ci[1],
-                                      'fit_r_squared': fit_r_squared,
-                                      'explained_var': explained_var,
-                                      'popt': fit_popt,
-                                      'pcov': fit_pcov,
-                                      'log_message': log_message})
-                pearson_avg_acf_l.append(pearsonr_acf_average)
-                pearson_avg_acf_matrix_l.append(pearsonr_acf_matrix)
-
-                # STTC trial-average
-                #print('STTC avg...')
-                # sttc_acf_matrix, sttc_acf_average = acf_sttc_trial_avg(spikes_trials, n_lags_=n_lags, lag_shift_=bin_size, sttc_dt_=sttc_dt,
-                #                                              zero_padding_len_=int(150 * (fs / 1000)), verbose_=False)
-                # fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(sttc_acf_average, start_idx_=1, exp_fun_=func_single_exp_monkey)
-                # sttc_avg_l.append({'tau':tau,
+                # pearsonr_acf_matrix, pearsonr_acf_average = acf_pearsonr_trial_avg(spikes_trials_binned, n_lags, verbose_=False)
+                # fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(pearsonr_acf_average,
+                #                                                                           start_idx_=1, exp_fun_=func_single_exp_monkey)
+                # pearson_avg_l.append({'tau':tau,
                 #                       'tau_lower':tau_ci[0],
                 #                       'tau_upper':tau_ci[1],
                 #                       'fit_r_squared': fit_r_squared,
@@ -252,8 +236,24 @@ if __name__ == "__main__":
                 #                       'popt': fit_popt,
                 #                       'pcov': fit_pcov,
                 #                       'log_message': log_message})
-                # sttc_avg_acf_l.append(sttc_acf_average)
-                # sttc_avg_acf_matrix_l.append(sttc_acf_matrix)
+                # pearson_avg_acf_l.append(pearsonr_acf_average)
+                # pearson_avg_acf_matrix_l.append(pearsonr_acf_matrix)
+
+                # STTC trial-average
+                #print('STTC avg...')
+                sttc_acf_matrix, sttc_acf_average = acf_sttc_trial_avg(spikes_trials, n_lags_=n_lags, lag_shift_=bin_size, sttc_dt_=sttc_dt,
+                                                             zero_padding_len_=int(150 * (fs / 1000)), verbose_=False)
+                fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(sttc_acf_average, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                sttc_avg_l.append({'tau':tau,
+                                      'tau_lower':tau_ci[0],
+                                      'tau_upper':tau_ci[1],
+                                      'fit_r_squared': fit_r_squared,
+                                      'explained_var': explained_var,
+                                      'popt': fit_popt,
+                                      'pcov': fit_pcov,
+                                      'log_message': log_message})
+                sttc_avg_acf_l.append(sttc_acf_average)
+                sttc_avg_acf_matrix_l.append(sttc_acf_matrix)
                 #
                 # # STTC concat
                 # print('STTC concat...')
@@ -271,22 +271,22 @@ if __name__ == "__main__":
                 #                       'log_message': log_message})
                 # sttc_concat_acf_l.append(acf_concat)
 
-            pearsonr_trial_avg_dict[sua_list[i][2]] = {'taus': pearson_avg_l,
-                                                       'acf': pearson_avg_acf_l,
-                                                       'acf_matrix': pearson_avg_acf_matrix_l}
-            # sttc_trial_avg_dict[sua_list[i][2]] = {'taus': sttc_avg_l,
-            #                                        'acf': sttc_avg_acf_l,
-            #                                        'acf_matrix': sttc_avg_acf_matrix_l}
+            # pearsonr_trial_avg_dict[sua_list[i][2]] = {'taus': pearson_avg_l,
+            #                                            'acf': pearson_avg_acf_l,
+            #                                            'acf_matrix': pearson_avg_acf_matrix_l}
+            sttc_trial_avg_dict[sua_list[i][2]] = {'taus': sttc_avg_l,
+                                                   'acf': sttc_avg_acf_l,
+                                                   'acf_matrix': sttc_avg_acf_matrix_l}
             # sttc_trial_concat_dict[sua_list[i][2]] = {'taus': sttc_concat_l,
             #                                           'acf': sttc_concat_acf_l}
 
         # sys.stdout = old_stdout
 
-        with open(data_folder + '\\dataset\\cut_30min\\binned\\acf\\pearsonr_trial_avg_50ms_20lags_dict.pkl', "wb") as f:
-            pickle.dump(pearsonr_trial_avg_dict, f)
+        # with open(data_folder + '\\dataset\\cut_30min\\binned\\acf\\pearsonr_trial_avg_50ms_20lags_dict.pkl', "wb") as f:
+        #     pickle.dump(pearsonr_trial_avg_dict, f)
 
-        # with open(data_folder + '\\dataset\\cut_30min\\non_binned\\taus\\sttc_trial_avg_dict.pkl', "wb") as f:
-        #     pickle.dump(sttc_trial_avg_dict, f)
+        with open(data_folder + '\\dataset\\cut_30min\\non_binned\\acf\\sttc_trial_avg_50ms_20lags_2000_4000_dict.pkl', "wb") as f:
+            pickle.dump(sttc_trial_avg_dict, f)
 
         # with open(data_folder + '\\dataset\\cut_30min\\non_binned\\taus\\sttc_trial_concat_dict.pkl', "wb") as f:
         #     pickle.dump(sttc_trial_concat_dict, f)
