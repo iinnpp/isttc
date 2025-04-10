@@ -51,9 +51,9 @@ if __name__ == "__main__":
     bin_spikes = False
     calculate_acf = False
     calculate_trials = True
-    calculate_trials_pearsonr = True
+    calculate_trials_pearsonr = False
     calculate_trials_sttc_avg = False
-    calculate_trials_sttc_concat = False
+    calculate_trials_sttc_concat = True
 
     min_to_keep = 30
 
@@ -189,14 +189,14 @@ if __name__ == "__main__":
         signal_len = int(30 * 60 * fs)
         n_lags = 20
         bin_size = 50  # in ms
-        sttc_dt = int(49 * (fs / 1000))
+        sttc_dt = int(25 * (fs / 1000))
         trial_len = int(n_lags * bin_size * (fs / 1000))
 
         n_trials = 40  # this is fixed based on experimental datasets
         m_iterations = 100
 
-        # with open(data_folder + 'dataset\\cut_30min\\trial_dict.pkl', 'rb') as f:
-        #     trial_dict = pickle.load(f)
+        with open(data_folder + 'dataset\\cut_30min\\trial_dict.pkl', 'rb') as f:
+            trial_dict = pickle.load(f)
 
         with open(data_folder + 'dataset\\cut_30min\\trial_binned_dict.pkl', 'rb') as f:
             trial_binned_dict = pickle.load(f)
@@ -207,8 +207,8 @@ if __name__ == "__main__":
         # sys.stdout = open(output_log, 'w')
 
         items_to_process = 2000
-        start_idx = 2000
-        stop_idx = len(trial_binned_dict)
+        start_idx = 1000
+        stop_idx = len(trial_dict)
 
         if calculate_trials_pearsonr:
             print('Starting Pearsonr trial avg...')
@@ -246,82 +246,82 @@ if __name__ == "__main__":
             with open(data_folder + '\\dataset\\cut_30min\\binned\\acf\\pearsonr_trial_avg_50ms_20lags_dict_test.pkl', "wb") as f:
                 pickle.dump(pearsonr_trial_avg_dict, f)
 
-        # if calculate_trials_sttc_avg:
-        #     print('Starting STTC trial avg ...')
-        #     sttc_trial_avg_dict = {}
-        #     for i, (k, v) in enumerate(islice(trial_dict.items(), items_to_process), start=1):
-        #         print(f'#####\nProcessing unit {k}, {i}/{items_to_process}, {datetime.now()}')
-        #
-        #         # on trials
-        #         sttc_avg_l, sttc_avg_acf_l, sttc_avg_acf_matrix_l = [], [], []
-        #         for m in range(m_iterations):
-        #             if (m % 50) == 0:
-        #                 print(f'Sampling iteration {m}')
-        #             spikes_trials = trial_dict[k][m]
-        #
-        #             sttc_acf_matrix, sttc_acf_average = acf_sttc_trial_avg(spikes_trials,
-        #                                                                    n_lags_=n_lags,
-        #                                                                    lag_shift_=int(bin_size * (fs / 1000)),
-        #                                                                    sttc_dt_=sttc_dt,
-        #                                                                    zero_padding_len_=int(150 * (fs / 1000)),
-        #                                                                    verbose_=False)
-        #             fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(sttc_acf_average, start_idx_=1,
-        #                                                                                                         exp_fun_=func_single_exp_monkey)
-        #             sttc_avg_l.append({'tau':tau,
-        #                                   'tau_lower':tau_ci[0],
-        #                                   'tau_upper':tau_ci[1],
-        #                                   'fit_r_squared': fit_r_squared,
-        #                                   'explained_var': explained_var,
-        #                                   'popt': fit_popt,
-        #                                   'pcov': fit_pcov,
-        #                                   'log_message': log_message})
-        #             sttc_avg_acf_l.append(sttc_acf_average)
-        #             sttc_avg_acf_matrix_l.append(sttc_acf_matrix)
-        #
-        #         sttc_trial_avg_dict[k] = {'taus': sttc_avg_l,
-        #                                   'acf': sttc_avg_acf_l,
-        #                                   'acf_matrix': sttc_avg_acf_matrix_l}
-        #
-        #     with open(data_folder + '\\dataset\\cut_30min\\non_binned\\acf\\sttc_trial_avg_50ms_20lags_dict_test.pkl', "wb") as f:
-        #         pickle.dump(sttc_trial_avg_dict, f)
+        if calculate_trials_sttc_avg:
+            print('Starting STTC trial avg ...')
+            sttc_trial_avg_dict = {}
+            for i, (k, v) in enumerate(islice(trial_dict.items(), items_to_process), start=1):
+                print(f'#####\nProcessing unit {k}, {i}/{items_to_process}, {datetime.now()}')
 
-        # if calculate_trials_sttc_concat:
-        #     print('Starting STTC trial concat ...')
-        #     sttc_trial_concat_dict = {}
-        #     for i, (k, v) in enumerate(islice(trial_dict.items(), items_to_process), start=1):
-        #         print(f'#####\nProcessing unit {k}, {i}/{items_to_process}, {datetime.now()}')
-        #
-        #         # on trials
-        #         sttc_concat_l, sttc_concat_acf_l= [], []
-        #         for m in range(m_iterations):
-        #             if (m % 50) == 0:
-        #                 print(f'Sampling iteration {m}')
-        #             spikes_trials = trial_dict[k][m]
-        #
-        #             acf_concat = acf_sttc_trial_concat(spikes_trials,
-        #                                                n_lags_=n_lags,
-        #                                                lag_shift_=int(bin_size * (fs / 1000)),
-        #                                                sttc_dt_=sttc_dt,
-        #                                                trial_len_=trial_len,
-        #                                                zero_padding_len_=int(3000 * (fs / 1000)),
-        #                                                verbose_=False)
-        #             fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(acf_concat, start_idx_=1,
-        #                                                                                                         exp_fun_=func_single_exp_monkey)
-        #             sttc_concat_l.append({'tau':tau,
-        #                                   'tau_lower':tau_ci[0],
-        #                                   'tau_upper':tau_ci[1],
-        #                                   'fit_r_squared': fit_r_squared,
-        #                                   'explained_var': explained_var,
-        #                                   'popt': fit_popt,
-        #                                   'pcov': fit_pcov,
-        #                                   'log_message': log_message})
-        #             sttc_concat_acf_l.append(acf_concat)
-        #
-        #         sttc_trial_concat_dict[k] = {'taus': sttc_concat_l,
-        #                                      'acf': sttc_concat_acf_l}
-        #
-        #     with open(data_folder + '\\dataset\\cut_30min\\non_binned\\acf\\sttc_trial_concat_50ms_20lags_dict_test.pkl', "wb") as f:
-        #         pickle.dump(sttc_trial_concat_dict, f)
+                # on trials
+                sttc_avg_l, sttc_avg_acf_l, sttc_avg_acf_matrix_l = [], [], []
+                for m in range(m_iterations):
+                    if (m % 50) == 0:
+                        print(f'Sampling iteration {m}')
+                    spikes_trials = trial_dict[k][m]
+
+                    sttc_acf_matrix, sttc_acf_average = acf_sttc_trial_avg(spikes_trials,
+                                                                           n_lags_=n_lags,
+                                                                           lag_shift_=int(bin_size * (fs / 1000)),
+                                                                           sttc_dt_=sttc_dt,
+                                                                           zero_padding_len_=int(150 * (fs / 1000)),
+                                                                           verbose_=False)
+                    fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(sttc_acf_average, start_idx_=1,
+                                                                                                                exp_fun_=func_single_exp_monkey)
+                    sttc_avg_l.append({'tau':tau,
+                                          'tau_lower':tau_ci[0],
+                                          'tau_upper':tau_ci[1],
+                                          'fit_r_squared': fit_r_squared,
+                                          'explained_var': explained_var,
+                                          'popt': fit_popt,
+                                          'pcov': fit_pcov,
+                                          'log_message': log_message})
+                    sttc_avg_acf_l.append(sttc_acf_average)
+                    sttc_avg_acf_matrix_l.append(sttc_acf_matrix)
+
+                sttc_trial_avg_dict[k] = {'taus': sttc_avg_l,
+                                          'acf': sttc_avg_acf_l,
+                                          'acf_matrix': sttc_avg_acf_matrix_l}
+
+            with open(data_folder + '\\dataset\\cut_30min\\non_binned\\acf\\sttc_trial_avg_50ms_20lags_dict_test.pkl', "wb") as f:
+                pickle.dump(sttc_trial_avg_dict, f)
+
+        if calculate_trials_sttc_concat:
+            print('Starting STTC trial concat ...')
+            sttc_trial_concat_dict = {}
+            for i, (k, v) in enumerate(islice(trial_dict.items(), start_idx, stop_idx), start=1):
+                print(f'#####\nProcessing unit {k}, {i}/{(stop_idx - start_idx)}, {datetime.now()}')
+
+                # on trials
+                sttc_concat_l, sttc_concat_acf_l= [], []
+                for m in range(m_iterations):
+                    if (m % 50) == 0:
+                        print(f'Sampling iteration {m}')
+                    spikes_trials = trial_dict[k][m]
+
+                    acf_concat = acf_sttc_trial_concat(spikes_trials,
+                                                       n_lags_=n_lags,
+                                                       lag_shift_=int(bin_size * (fs / 1000)),
+                                                       sttc_dt_=sttc_dt,
+                                                       trial_len_=trial_len,
+                                                       zero_padding_len_=int(3000 * (fs / 1000)),
+                                                       verbose_=False)
+                    fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(acf_concat, start_idx_=1,
+                                                                                                                exp_fun_=func_single_exp_monkey)
+                    sttc_concat_l.append({'tau':tau,
+                                          'tau_lower':tau_ci[0],
+                                          'tau_upper':tau_ci[1],
+                                          'fit_r_squared': fit_r_squared,
+                                          'explained_var': explained_var,
+                                          'popt': fit_popt,
+                                          'pcov': fit_pcov,
+                                          'log_message': log_message})
+                    sttc_concat_acf_l.append(acf_concat)
+
+                sttc_trial_concat_dict[k] = {'taus': sttc_concat_l,
+                                             'acf': sttc_concat_acf_l}
+
+            with open(data_folder + '\\dataset\\cut_30min\\non_binned\\acf\\sttc_trial_concat_50ms_20lags_dict_dt25_1000_end.pkl', "wb") as f:
+                pickle.dump(sttc_trial_concat_dict, f)
 
         # sys.stdout = old_stdout
 

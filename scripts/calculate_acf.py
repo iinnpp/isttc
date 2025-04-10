@@ -661,7 +661,7 @@ def acf_sttc_trial_concat(spike_train_l_: list, n_lags_: int, lag_shift_: int, s
     list is equal to the number of trials. Spike times are realigned (each trial starts at time 0).
     :param n_lags_: int, number of lags
     :param lag_shift_: int, shift for a time lag (in time points)
-    :param sttc_dt_: int, dt parameter for STTC calculation
+    :param sttc_dt_: int, dt parameter for STTC calculation (in time points)
     :param trial_len_: int, len of a trial (in time points). All trials have the same length.
     :param zero_padding_len_: int, len of zero padding (in time points).
     :param verbose_: bool, default False, diagnostic printout if True, silent otherwise
