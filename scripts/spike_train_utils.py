@@ -90,6 +90,33 @@ def bin_trials(spikes_trials_l_, trial_len_, bin_size_):
 
     return binned_spikes_trials_2d
 
+
+def get_lv(spike_train_int_l_, verbose_=False):
+    """
+    Calculate Local Variation (Lv) based on Shinomoto, 2009.
+
+    :param spike_train_int_l_: list, list of spike times (int)
+    :param verbose_: bool, default False, diagnostic printout if True, silent otherwise
+    :return: float, Lv. If spike train contains < 3 spikes -> lv = np.nan.
+    """
+    unit_spikes_ = np.asarray(spike_train_int_l_)
+    isi = np.diff(unit_spikes_)
+
+    n_isi = len(isi)
+    if n_isi > 1:
+        sum_ = 0
+        for isi_idx_, isi_ in enumerate(isi[:-1]):
+            top = isi[isi_idx_] - isi[isi_idx_+1]
+            bottom = isi[isi_idx_] + isi[isi_idx_ + 1]
+            sum_ = sum_ + (top/bottom)**2
+        lv = (3/(n_isi - 1)) * sum_
+    else:
+        lv = np.nan
+        if verbose_:
+            print('n_isi < 2: skipping the unit...')
+
+    return lv
+
 # def get_firing_rate(spike_train_int_l_, fs_):
 #     """
 #     Calculate firing rate for a single unit.
