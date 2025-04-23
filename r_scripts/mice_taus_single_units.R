@@ -1,32 +1,31 @@
 library(rio)
-library(dabestr)
-library(ggplot2)
+library(sjPlot)
+library(emmeans)
+library(lme4)
 
-df <- import("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\allen_mice\\dataset\\cut_30min\\summary_taus_plot_5methods_100_resampling_df_long.csv")
-df$method <- factor(df$method, levels = c("acf_full", "isttc_full", "sttc_avg", "sttc_concat", "pearsonr"))
+df <- import("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\allen_mice\\dataset\\cut_30min\\summary_taus_plot_5methods_100_50_20_1_resampling_df_long.csv")
+df$method <- factor(df$method, levels = c("isttc_full", "acf_full", "pearsonr", "sttc_avg", "sttc_concat"))
+df$n_sampling <- factor(df$n_sampling, levels = c("1","20", "50", "100"))
+df$method <- relevel(df$method, ref='isttc_full')
+df$n_sampling <- relevel(df$n_sampling, ref='20')
 
-dabest_obj <- dabestr::load(
-  data = df,
-  x = method,
-  y = tau_ms_log10,
-  idx = c("acf_full", "isttc_full", "sttc_avg", "sttc_concat", "pearsonr")
+# trials 100 sampling, control is isttc_full
+df_5 <- df[df$n_sampling == "1", ]
+
+model_5 <- lmer(tau_ms_log10 ~ method + (1 | unit_id), data=df_5)
+summary(model_5)
+confint(model_5)
+emmeans(model_5, pairwise ~ method)
+
+plot_model(
+  model_5, 
+  show.values = TRUE,
+  value.offset = .3,
+  value.size = 4,
+  dot.size = 2,
+  line.size = 1,
+  vline.color = "blue",
+  width = 0.1
 )
 
-dabest_obj <- dabestr::mean_diff(dabest_obj, paired = FALSE)
-
-# Extract effect sizes
-effect_df <- dabest_obj$mean_diff
-
-# Inspect the structure
-print(effect_df)
-
-ggplot(effect_df, aes(x = comparison, y = difference)) +
-  geom_point(size = 3) +
-  geom_errorbar(aes(ymin = ci_low, ymax = ci_high), width = 0.2) +
-  geom_hline(yintercept = 0, linetype = "dashed", color = "grey40") +
-  labs(
-    y = "Mean difference in log10(tau_ms) vs acf_full",
-    x = NULL,
-    title = "Effect sizes of tau_ms across methods"
-  ) +
-  theme_minimal()
+# also try MI
