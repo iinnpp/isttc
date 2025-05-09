@@ -6,6 +6,52 @@ import numpy as np
 from random import randrange
 
 
+def simulate_hawkes_thinning(fr_hz_, tau_ms_, alpha_, duration_ms_, seed_=None):
+    """
+    Simulate 1D Hawkes point process with exponential kernel using Ogata's thinning.
+
+    :param fr_hz_: stationary firing rate stationary rate, hz
+    :param tau_ms_: target time constant, ms
+    :param alpha_: kernel integral (<1 for stability), means excitation strength
+    :param duration_ms_: total sim time, ms
+    :param seed_: seed for random generator
+    :return 1d array of spike times
+    """
+    rng = np.random.default_rng(seed_)
+    tau_kernel_ms = tau_ms_ * (1 - alpha_) # internal tau for generation
+    tau = tau_kernel_ms / 1000.0
+    mu = fr_hz_ * (1 - alpha_)  # baseline intensity (hz)
+
+    t = 0.0
+    events = []
+    # current kernel sum K = sum_i (alpha/tau e^{-(t - t_i)/tau})
+    K = 0.0
+
+    # convert to sec for intensity calc
+    T_sec = duration_ms_ / 1000.0
+
+    while True:
+        lambda_upper = mu + K  # global upper‐bound on intensity
+        if lambda_upper <= 0:
+            break
+        # draw next candidate time increment (sec)
+        w = rng.exponential(1.0 / lambda_upper)
+        t += w
+        if t >= T_sec:
+            break
+        # decay K over interval w
+        K *= np.exp(-w / tau)
+        # actual intensity at new t
+        lambda_t = mu + K
+        if rng.random() < lambda_t / lambda_upper:
+            # accept
+            events.append(t * 1000.0)  # store in ms
+            # add kernel jump alpha/tau at event
+            K += alpha_ / tau
+
+    return np.array(events)
+
+
 def bin_spike_train(spike_train_int_l_, bin_length_ms_, fs_, verbose_=False):
     """
     Bin spike train.
