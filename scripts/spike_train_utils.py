@@ -108,7 +108,10 @@ def get_lv(spike_train_int_l_, verbose_=False):
         for isi_idx_, isi_ in enumerate(isi[:-1]):
             top = isi[isi_idx_] - isi[isi_idx_+1]
             bottom = isi[isi_idx_] + isi[isi_idx_ + 1]
-            sum_ = sum_ + (top/bottom)**2
+            if bottom == 0:
+                sum_ = sum_
+            else:
+                sum_ = sum_ + (top / bottom) ** 2
         lv = (3/(n_isi - 1)) * sum_
     else:
         lv = np.nan
