@@ -1,27 +1,117 @@
+import numpy as np
 from itertools import islice
 import pickle
 from datetime import datetime
 from statsmodels.tsa.stattools import acf
 
-from scripts.calculate_acf import acf_pearsonr_trial_avg, acf_sttc_trial_avg, acf_sttc_trial_concat
+from scripts.calculate_acf import acf_pearsonr_trial_avg, acf_sttc_trial_avg, acf_sttc_trial_concat, acf_sttc
 from scripts.calculate_tau import fit_single_exp, func_single_exp_monkey
 from scripts.cfg_global import project_folder_path
-
+from scripts.spike_train_utils import bin_spike_train_fixed_len
 
 if __name__ == "__main__":
-    data_folder = project_folder_path + 'results\\synthetic_data\\'
-    fs = 1000
+    dataset_folder = project_folder_path + 'results\\synthetic\\dataset\\'
+    results_folder = project_folder_path + 'results\\synthetic\\results\\param_fr_alpha_tau\\'
 
-    calculate_trials = True
+    calculate_trials = False
+
+    calculate_acf_full = True
+    calculate_sttc_full = True
     calculate_trials_pearsonr = False
     calculate_trials_sttc_avg = False
-    calculate_trials_sttc_concat = True
+    calculate_trials_sttc_concat = False
+
+    # params
+    fs = 1000
+    signal_len = int(10 * 60 * fs)
+    n_lags = 20
+    bin_size = int(50 * (fs / 1000))
+    sttc_dt_full = int(25 * (fs / 1000))
+
+    if calculate_acf_full or calculate_sttc_full:
+        with open(dataset_folder + 'spike_trains_3params_var_len600sec_100000.pkl', 'rb') as f:
+            data = pickle.load(f)
+
+        spike_trains = data['spike_trains']
+        print(f'n spike trains {len(spike_trains)}, len {spike_trains[0][-1] / 1000}')
+
+
+        if calculate_acf_full:
+            # bin
+            all_spike_trains_binned_l = []
+            for i in range(len(spike_trains)):
+                binned_spike_train = bin_spike_train_fixed_len([int(spike) for spike in spike_trains[i]],
+                                                               bin_size, fs, signal_len,
+                                                               verbose_=False)
+                all_spike_trains_binned_l.append(binned_spike_train)
+
+            # get acf
+            acf_full_l = []
+            for unit_idx, unit in enumerate(all_spike_trains_binned_l):
+                if unit_idx % 100 == 0:
+                    print(f'Processing unit {unit_idx}')
+                spike_train_binned_acf = acf(unit, nlags=n_lags)
+                acf_full_l.append(spike_train_binned_acf)
+
+            # get tau
+            acf_full_dict = {}
+            for unit_id_idx, unit_acf in enumerate(acf_full_l):
+                if unit_id_idx % 100 == 0:
+                    print(
+                        f'#####\nProcessing unit {unit_id_idx + 1}/{len(acf_full_l)}, {datetime.now()}')
+                fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(
+                    unit_acf, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                taus = {'tau': tau,
+                        'tau_lower': tau_ci[0],
+                        'tau_upper': tau_ci[1],
+                        'fit_r_squared': fit_r_squared,
+                        'explained_var': explained_var,
+                        'popt': fit_popt,
+                        'pcov': fit_pcov,
+                        'log_message': log_message}
+                acf_full_dict[unit_id_idx] = {'taus': taus, 'acf': unit_acf}
+
+            # save
+            with open(results_folder + 'acf_full_50ms_20lags_dict.pkl', "wb") as f:
+                pickle.dump(acf_full_dict, f)
+
+        if calculate_sttc_full:
+            # get acf
+            acf_isttc_full_l = []
+            for unit_idx, unit in enumerate(spike_trains):
+                if unit_idx % 100 == 0:
+                    print(f'Processing unit {unit_idx}')
+                spike_train_int = np.asarray([int(spike) for spike in unit])
+                spike_train_acf = acf_sttc(spike_train_int, n_lags, bin_size, sttc_dt_full, signal_len, verbose_=False)
+                acf_isttc_full_l.append(spike_train_acf)
+
+            # get tau
+            isttc_full_dict = {}
+            for unit_id_idx, unit_acf in enumerate(acf_isttc_full_l):
+                if unit_id_idx % 100 == 0:
+                    print(
+                        f'#####\nProcessing unit {unit_id_idx + 1}/{len(acf_isttc_full_l)}, {datetime.now()}')
+                fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(
+                    unit_acf, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                taus = {'tau': tau,
+                        'tau_lower': tau_ci[0],
+                        'tau_upper': tau_ci[1],
+                        'fit_r_squared': fit_r_squared,
+                        'explained_var': explained_var,
+                        'popt': fit_popt,
+                        'pcov': fit_pcov,
+                        'log_message': log_message}
+                isttc_full_dict[unit_id_idx] = {'taus': taus, 'acf': unit_acf}
+
+            # save
+            with open(results_folder + 'acf_isttc_full_50ms_20lags_dict.pkl', "wb") as f:
+                pickle.dump(isttc_full_dict, f)
 
 
     if calculate_trials:
-        signal_len = int(10 * 60 * fs)
-        n_lags = 20
-        bin_size = 50  # in ms
+
+        # n_lags = 20
+        #bin_size = 50  # in ms
         sttc_dt_avg = int(50 * (fs / 1000) - 1)
         sttc_dt_concat = int(25 * (fs / 1000))
         trial_len = int(n_lags * bin_size * (fs / 1000))
@@ -29,10 +119,10 @@ if __name__ == "__main__":
         n_trials = 40  # this is fixed based on experimental datasets
         m_iterations = 100
 
-        with open(data_folder + 'dataset\\trial_dict.pkl', 'rb') as f:
+        with open(dataset_folder + 'dataset\\trial_tau100ms_alpha0_3_fr3_5hz_len600sec_1000_dict.pkl', 'rb') as f:
             trial_dict = pickle.load(f)
 
-        with open(data_folder + 'dataset\\trial_binned_dict.pkl', 'rb') as f:
+        with open(dataset_folder + 'dataset\\trial_binned_tau100ms_alpha0_3_fr3_5hz_len600sec_1000_dict.pkl', 'rb') as f:
             trial_binned_dict = pickle.load(f)
 
 
@@ -77,7 +167,7 @@ if __name__ == "__main__":
                                               'acf': pearson_avg_acf_l,
                                               'acf_matrix': pearson_avg_acf_matrix_l}
 
-            with open(data_folder + 'results\\pearsonr_trial_avg_50ms_20lags_dict.pkl', "wb") as f:
+            with open(results_folder + 'pearsonr_trial_avg_50ms_20lags_dict.pkl', "wb") as f:
                 pickle.dump(pearsonr_trial_avg_dict, f)
 
         if calculate_trials_sttc_avg:
@@ -116,7 +206,7 @@ if __name__ == "__main__":
                                           'acf': sttc_avg_acf_l,
                                           'acf_matrix': sttc_avg_acf_matrix_l}
 
-            with open(data_folder + '\\results\\sttc_trial_avg_50ms_20lags_dict_test.pkl', "wb") as f:
+            with open(results_folder + 'sttc_trial_avg_50ms_20lags_dict.pkl', "wb") as f:
                 pickle.dump(sttc_trial_avg_dict, f)
 
         if calculate_trials_sttc_concat:
@@ -154,7 +244,7 @@ if __name__ == "__main__":
                 sttc_trial_concat_dict[k] = {'taus': sttc_concat_l,
                                              'acf': sttc_concat_acf_l}
 
-            with open(data_folder + '\\results\\sttc_trial_concat_50ms_20lags_dict_dt25_1000_end.pkl', "wb") as f:
+            with open(results_folder + 'sttc_trial_concat_50ms_20lags_dict.pkl', "wb") as f:
                 pickle.dump(sttc_trial_concat_dict, f)
 
         # sys.stdout = old_stdout
