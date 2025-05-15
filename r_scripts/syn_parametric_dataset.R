@@ -171,89 +171,129 @@ cat("Residual kurtosis:", round(res_win_kurt, 3), "\n")
 
 summary(model_win_reml)
 
+
+##################################################################
+# For interactions: how the isttc/acf diff change 
+##################################################################
+
+# alpha
+a_min <- min(df$alpha, na.rm=TRUE)
+a_max <- max(df$alpha, na.rm=TRUE)
+
+sd_alpha <- sd(df$alpha, na.rm=TRUE)
+delta_sd_full <- (a_max - a_min) / sd_alpha
+
+beta_alpha <- fixef(model_win_reml)["methodisttc_full:alpha_s"]
+
+pct_full <- (10^(beta_alpha * delta_sd_full) - 1) * 100
+pct_full
+
+# fr
+a_min <- min(df$fr, na.rm=TRUE)
+a_max <- max(df$fr, na.rm=TRUE)
+
+sd_fr <- sd(df$fr, na.rm=TRUE)
+delta_sd_full <- (a_max - a_min) / sd_fr
+
+beta_fr <- fixef(model_win_reml)["methodisttc_full:fr_s"]
+
+pct_full_fr <- (10^(beta_fr * delta_sd_full) - 1) * 100
+pct_full_fr
+
+# true tau
+a_min <- min(df$tau_ms_true, na.rm=TRUE)
+a_max <- max(df$tau_ms_true, na.rm=TRUE)
+
+sd_tau <- sd(df$tau_ms_true, na.rm=TRUE)
+delta_sd_full <- (a_max - a_min) / sd_tau
+
+beta_tau <- fixef(model_win_reml)["methodisttc_full:tau_ms_true_s"]
+
+pct_full_tau <- (10^(beta_tau * delta_sd_full) - 1) * 100
+pct_full_tau
+
+
+##################################################################
+# For alpha: getting the crossover point
+##################################################################
+
+beta_meth   <- fixef(model_win_reml)["methodisttc_full"]
+beta_methA  <- fixef(model_win_reml)["methodisttc_full:alpha_s"]
+
+# solve for alpha_s at which the predicted log10‐difference = 0
+alpha_s_cross <- -beta_meth / beta_methA
+
+# get raw alpha
+alpha_mean <- mean(df$alpha, na.rm=TRUE)
+alpha_sd   <- sd(df$alpha,   na.rm=TRUE)
+alpha_cross <- alpha_mean + alpha_s_cross * alpha_sd
+
+alpha_s_cross
+alpha_cross
+
+
+##################################################################
+# Calculate for min max for alpha, tau and fr (for all interactions)
+##################################################################
+
+# todo
+
 ##################################################################
 #PLOTS
 ##################################################################
 
+
+# forest plot of fixed effects - simple version
+plot_model(
+  model_win_reml, 
+  show.values = TRUE,
+  value.offset = .3,
+  value.size = 4,
+  dot.size = 2,
+  line.size = 1,
+  vline.color = "blue",
+  width = 0.1
+)
+
+
 # forest plot of fixed effects
 fe <- tidy(model_win_reml, effects = "fixed", conf.int = TRUE) %>%
-  filter(term != "(Intercept)") %>%             # drop the intercept
+  filter(term != "(Intercept)") %>% # drop the intercept
   mutate(
-    ratio     = exp(estimate),                  # back‐transform point estimate
-    ci.low    = exp(conf.low),                  # back‐transform lower CI
-    ci.high   = exp(conf.high),                 # back‐transform upper CI
-    term      = recode(term,                    # nicer labels
-                       "methodisttc_full" = "Method: ist tc vs. acf",
-                       "fr_s"               = "Firing rate (SD)",
-                       "alpha_s"            = "Alpha (SD)",
-                       "tau_ms_true_s"      = "True τ (SD)",
-                       "methodisttc_full:fr_s"       = "Meth×FR",
-                       "methodisttc_full:alpha_s"    = "Meth×Alpha",
-                       "methodisttc_full:tau_ms_true_s" = "Meth×True τ")
-  )
+    ratio     = (10**estimate - 1)*100, # back‐transform
+    ci.low    = (10**conf.low - 1)*100,             
+    ci.high   = (10**conf.high - 1)*100,                
+    term      = recode(term, # labels
+                       "methodisttc_full" = "Method",
+                       "fr_s" = "Firing rate (SD)",
+                       "alpha_s" = "Alpha (SD)",
+                       "tau_ms_true_s" = "True tau (SD)",
+                       "methodisttc_full:fr_s" = "Method × FR",
+                       "methodisttc_full:alpha_s" = "Method × Alpha",
+                       "methodisttc_full:tau_ms_true_s" = "Method × True tau"),
 
-ggplot(fe, aes(x = fct_reorder(term, ratio), y = ratio)) +
-  geom_hline(yintercept = 1, linetype = "dashed", color = "grey50") +
-  geom_errorbar(aes(ymin = ci.low, ymax = ci.high), width = 0.2) +
-  geom_point(size = 3, color = "steelblue") +
-  coord_flip() +
-  scale_y_continuous(
-    name = "Multiplicative effect on τ-diff\n(isttc_full vs. acf_full)",
-    breaks = c(0.9, 1.0, 1.1),
-    labels = scales::percent_format(accuracy = 1)
-  ) +
-  labs(x = NULL,
-       title = "Fixed-Effects (Back-transformed to Ratio Scale)") +
-  theme_minimal(base_size = 14)
-
-
-# more fancy forest plot
-fe <- tidy(model_win_reml, effects = "fixed", conf.int = TRUE) %>%
-  filter(term != "(Intercept)") %>%
-  mutate(
-    ratio   = exp(estimate),
-    ci.low  = exp(conf.low),
-    ci.high = exp(conf.high),
-    pct_lbl = percent(ratio, accuracy = 3),   # e.g. "96%"  
-    term    = recode(term,
-                     "methodisttc_full"              = "Method",
-                     "fr_s"                           = "FR (SD)",
-                     "alpha_s"                        = "Alpha (SD)",
-                     "tau_ms_true_s"                  = "True τ (SD)",
-                     "methodisttc_full:fr_s"          = "Meth × FR",
-                     "methodisttc_full:alpha_s"       = "Meth × Alpha",
-                     "methodisttc_full:tau_ms_true_s" = "Meth × True τ"
-    ),
     term = factor(term, levels = c(
       "Method",
-      "FR (SD)",
+      "Firing rate (SD)",
       "Alpha (SD)",
-      "True τ (SD)",
-      "Meth × FR",
-      "Meth × Alpha",
-      "Meth × True τ"
-    ))
-  )
+      "True tau (SD)",
+      "Method × FR",
+      "Method × Alpha",
+      "Method × True tau"
+    )),
+    term = factor(term, levels = rev(levels(factor(term)))))
 
 ggplot(fe, aes(x = term, y = ratio)) +
-  geom_hline(yintercept = 1, linetype = "dashed", color = "grey50") +
   geom_errorbar(aes(ymin = ci.low, ymax = ci.high), width = 0.2) +
   geom_point(size = 3, color = "steelblue") +
-  geom_text(aes(label = pct_lbl), 
-            nudge_y = 0.01,           # tiny shift to the right
-            hjust   = 0,              # left‐justify labels
-            size    = 4) +            # label font size
   coord_flip() +
   scale_y_continuous(
-    name   = "Multiplicative effect on τ-diff\n(isttc_full vs. acf_full)",
-    limits = c(0.85, 1.1),
-    breaks = c(0.9, 1.0, 1.1),
-    labels = percent_format(accuracy = 1)
+    name = "Effect on tau_diff_rel"
   ) +
   labs(
     x     = NULL,
-    title = "Fixed-Effects (Back-transformed to Ratio Scale)"
-  ) +
+    title = "Fixed-Effects (Back-transformed from log10 to %)"
+  ) + 
   theme_minimal(base_size = 14)
 
 
