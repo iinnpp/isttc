@@ -1,6 +1,17 @@
 library(sjPlot)
+library(broom.mixed)    # for tidy()
+library(dplyr)
+library(emmeans)
+library(lme4)
+library(lmerTest)
 library(ggplot2)
 library(moments)
+library(ggeffects)
+library(robustlmm)
+library(glmmTMB)
+library(patchwork)  
+library(forcats)
+library(scales)
 
 df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\param_fr_alpha_tau\\lv_df.csv")
 
@@ -41,3 +52,20 @@ p <- plot_model(
 p1 <- p + scale_y_continuous(limits = c(-0.05, 0.45))
 p1 + coord_flip()
 
+# plot predicted values
+# new data at mean of others
+newdat <- data.frame(
+  alpha  = seq(min(df$alpha), max(df$alpha), length.out = 100),
+  fr     = mean(df$fr),
+  tau_ms = mean(df$tau_ms)
+)
+
+# get fit + CI
+preds <- predict(model, newdat, interval = "confidence")
+newdat <- cbind(newdat, as.data.frame(preds))
+
+ggplot(newdat, aes(x = alpha, y = fit)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2) +
+  labs(x = "Alpha", y = "Predicted lv") +
+  theme_minimal()
