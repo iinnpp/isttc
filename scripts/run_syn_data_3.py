@@ -18,8 +18,8 @@ if __name__ == "__main__":
 
     calculate_acf_full = False
     calculate_sttc_full = False
-    calculate_trials_pearsonr = True
-    calculate_trials_sttc_avg = False
+    calculate_trials_pearsonr = False
+    calculate_trials_sttc_avg = True
     calculate_trials_sttc_concat = False
 
     # params
@@ -118,7 +118,7 @@ if __name__ == "__main__":
         trial_len = int(n_lags * bin_size * (fs / 1000))
 
         # n_trials = 40
-        m_iterations = 1 # 100
+        m_iterations = 1 #100
 
         # with open(dataset_folder + 'trial_tau100ms_alpha0_3_fr3_5hz_len600sec_1000_dict.pkl', 'rb') as f:
         with open(dataset_folder + '1_trial_3params_var_len600sec_100000_dict.pkl', 'rb') as f:
@@ -225,7 +225,6 @@ if __name__ == "__main__":
                 sttc_trial_avg_dict[k] = {'taus': sttc_avg_l,
                                           'acf': sttc_avg_acf_l,
                                           'acf_matrix': sttc_avg_acf_matrix_l}
-
             with open(results_folder + 'sttc_trial_avg_50ms_dict.pkl', "wb") as f:
                 pickle.dump(sttc_trial_avg_dict, f)
 
