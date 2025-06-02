@@ -11,15 +11,14 @@ from scripts.spike_train_utils import bin_spike_train_fixed_len
 
 if __name__ == "__main__":
     dataset_folder = project_folder_path + 'results\\synthetic\\dataset\\'
-    #results_folder = project_folder_path + 'results\\synthetic\\results\\fixed_params_var_trials\\'
-    results_folder = 'Q:\\Personal\\Irina\\projects\\isttc\\temp2\\'
+    results_folder = project_folder_path + 'results\\synthetic\\results\\fixed_params_var_trials\\v1\\'
 
     calculate_trials = True
 
     calculate_acf_full = False
     calculate_sttc_full = False
-    calculate_trials_pearsonr = True
-    calculate_trials_sttc_avg = False
+    calculate_trials_pearsonr = False
+    calculate_trials_sttc_avg = True
     calculate_trials_sttc_concat = False
 
     # params
@@ -120,16 +119,16 @@ if __name__ == "__main__":
         # n_trials = 40
         m_iterations = 1 # 100
 
-        # with open(dataset_folder + 'trial_tau100ms_alpha0_3_fr3_5hz_len600sec_1000_dict.pkl', 'rb') as f:
-        with open(dataset_folder + '1_trial_3params_var_len600sec_100000_dict.pkl', 'rb') as f:
+        with open(dataset_folder + '0_trial_var_tau100ms_alpha0_3_fr3_5hz_len600sec_1000_dict_v1.pkl', 'rb') as f:
+        # with open(dataset_folder + '1_trial_3params_var_len600sec_100000_dict.pkl', 'rb') as f:
             trial_dict_full = pickle.load(f)
         trial_dict = trial_dict_full['trial_dict']
         n_trials_all = trial_dict_full['n_trials']
         trial_lens_all = trial_dict_full['trial_lens']
 
-        # with open(dataset_folder + 'trial_binned_tau100ms_alpha0_3_fr3_5hz_len600sec_1000_dict.pkl', 'rb') as f:
-        with open(dataset_folder + '1_trial_binned_3params_var_len600sec_100000_dict.pkl',
-                      'rb') as f:
+        with open(dataset_folder + '0_trial_binned_var_tau100ms_alpha0_3_fr3_5hz_len600sec_1000_dict_v1.pkl', 'rb') as f:
+        # with open(dataset_folder + '1_trial_binned_3params_var_len600sec_100000_dict.pkl',
+        #              'rb') as f:
             trial_binned_dict_full = pickle.load(f)
         trial_binned_dict = trial_binned_dict_full['trial_dict']
         # n_trials_all = trial_binned_dict_full['n_trials']
