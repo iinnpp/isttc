@@ -11,7 +11,7 @@ from scripts.spike_train_utils import bin_spike_train_fixed_len
 
 if __name__ == "__main__":
     dataset_folder = project_folder_path + 'results\\synthetic\\dataset\\'
-    results_folder = project_folder_path + 'results\\synthetic\\results\\fixed_params_var_trials\\v1\\'
+    results_folder = project_folder_path + 'results\\synthetic\\results\\fixed_params_sttc_vs_zeros\\'
 
     calculate_trials = True
 
@@ -19,7 +19,7 @@ if __name__ == "__main__":
     calculate_sttc_full = False
     calculate_trials_pearsonr = False
     calculate_trials_sttc_avg = True
-    calculate_trials_sttc_concat = False
+    calculate_trials_sttc_concat = True
 
     # params
     fs = 1000
@@ -119,14 +119,14 @@ if __name__ == "__main__":
         # n_trials = 40
         m_iterations = 1 # 100
 
-        with open(dataset_folder + '0_trial_var_tau100ms_alpha0_3_fr3_5hz_len600sec_1000_dict_v1.pkl', 'rb') as f:
+        with open(dataset_folder + '0_trial_tau100ms_alpha0_3_fr3_5hz_len600sec_1000_dict.pkl', 'rb') as f:
         # with open(dataset_folder + '1_trial_3params_var_len600sec_100000_dict.pkl', 'rb') as f:
             trial_dict_full = pickle.load(f)
         trial_dict = trial_dict_full['trial_dict']
         n_trials_all = trial_dict_full['n_trials']
         trial_lens_all = trial_dict_full['trial_lens']
 
-        with open(dataset_folder + '0_trial_binned_var_tau100ms_alpha0_3_fr3_5hz_len600sec_1000_dict_v1.pkl', 'rb') as f:
+        with open(dataset_folder + '0_trial_binned_tau100ms_alpha0_3_fr3_5hz_len600sec_1000_dict.pkl', 'rb') as f:
         # with open(dataset_folder + '1_trial_binned_3params_var_len600sec_100000_dict.pkl',
         #              'rb') as f:
             trial_binned_dict_full = pickle.load(f)
@@ -141,7 +141,7 @@ if __name__ == "__main__":
 
         #items_to_process = 10
         start_idx = 0
-        stop_idx = len(trial_dict)
+        stop_idx = 100 # len(trial_dict)
 
         if calculate_trials_pearsonr:
             print('Starting Pearsonr trial avg...')
@@ -206,7 +206,7 @@ if __name__ == "__main__":
                                                                            n_lags_=n_lags,
                                                                            lag_shift_=int(bin_size * (fs / 1000)),
                                                                            sttc_dt_=sttc_dt_avg,
-                                                                           zero_padding_len_=int(150 * (fs / 1000)),
+                                                                           zero_padding_len_=int(50 * (fs / 1000)), # 150 is default
                                                                            verbose_=False)
                     fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(sttc_acf_average, start_idx_=1,
                                                                                                                 exp_fun_=func_single_exp_monkey)
@@ -251,7 +251,7 @@ if __name__ == "__main__":
                                                        lag_shift_=int(bin_size * (fs / 1000)),
                                                        sttc_dt_=sttc_dt_concat,
                                                        trial_len_=trial_len,
-                                                       zero_padding_len_=int(3*trial_len * (fs / 1000)),
+                                                       zero_padding_len_=int(1*trial_len * (fs / 1000)), # 3 is default
                                                        verbose_=False)
                     fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(acf_concat, start_idx_=1,
                                                                                                                 exp_fun_=func_single_exp_monkey)
