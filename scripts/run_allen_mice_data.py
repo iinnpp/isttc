@@ -44,16 +44,16 @@ def write_sua_csv(csv_file_name_, sua_list_original_, sua_list_new_, verbose_=Fa
 
 
 if __name__ == "__main__":
-    data_folder = project_folder_path + 'results\\allen_mice\\'
+    data_folder = project_folder_path + 'results\\mice\\'
     fs = 30000  # neuropixels
 
     trim_spikes = False
     bin_spikes = False
     calculate_acf = False
     calculate_trials = True
-    calculate_trials_pearsonr = False
+    calculate_trials_pearsonr = True
     calculate_trials_sttc_avg = False
-    calculate_trials_sttc_concat = True
+    calculate_trials_sttc_concat = False
 
     min_to_keep = 30
 
@@ -79,30 +79,31 @@ if __name__ == "__main__":
                       sua_list, sua_list_trimmed, verbose_=True)
 
     if bin_spikes:
-        params_dict = {'25ms': {'bin_size': 25, 'bin_size_suffix': '25ms', 'calc': True},
-                       '40ms': {'bin_size': 40, 'bin_size_suffix': '40ms', 'calc': True},
+        params_dict = {'25ms': {'bin_size': 25, 'bin_size_suffix': '25ms', 'calc': False},
+                       '40ms': {'bin_size': 40, 'bin_size_suffix': '40ms', 'calc': False},
                        '50ms': {'bin_size': 50, 'bin_size_suffix': '50ms', 'calc': True},
-                       '60ms': {'bin_size': 60, 'bin_size_suffix': '60ms', 'calc': True},
-                       '75ms': {'bin_size': 75, 'bin_size_suffix': '75ms', 'calc': True},
-                       '100ms': {'bin_size': 100, 'bin_size_suffix': '100ms', 'calc': True}
+                       '60ms': {'bin_size': 60, 'bin_size_suffix': '60ms', 'calc': False},
+                       '75ms': {'bin_size': 75, 'bin_size_suffix': '75ms', 'calc': False},
+                       '100ms': {'bin_size': 100, 'bin_size_suffix': '100ms', 'calc': False}
                        }
-        csv_data_file = data_folder + 'dataset\\cut_30min\\sua_list_constrained.csv'
+        csv_data_file = data_folder + 'dataset\\cut_' + str(min_to_keep) + 'min\\sua_list_constrained.csv'
         with open(csv_data_file, newline='') as f:
             reader = csv.reader(f)
             sua_list = list(reader)
         print(f'Loaded N units {len(sua_list)}')
         signal_len = min_to_keep * 60 * fs
         for k, v in params_dict.items():
-            print(f'processing {k}')
-            sua_list_binned_l = []
-            for j in range(len(sua_list)):
-                binned_spike_train = bin_spike_train_fixed_len([int(spike) for spike in sua_list[j][8:]],
-                                                               v['bin_size'], fs, signal_len,
-                                                               verbose_=True)
-                sua_list_binned_l.append(binned_spike_train)
+            if v['calc']:
+                print(f'processing {k}')
+                sua_list_binned_l = []
+                for j in range(len(sua_list)):
+                    binned_spike_train = bin_spike_train_fixed_len([int(spike) for spike in sua_list[j][8:]],
+                                                                   v['bin_size'], fs, signal_len,
+                                                                   verbose_=True)
+                    sua_list_binned_l.append(binned_spike_train)
 
-            write_sua_csv(data_folder + 'dataset\\cut_30min\\sua_list_constrained_binned_' + k + '.csv',
-                          sua_list, sua_list_binned_l, verbose_=True)
+                write_sua_csv(data_folder + 'dataset\\cut_' + str(min_to_keep) + 'min\\sua_list_constrained_binned_' + k + '.csv',
+                              sua_list, sua_list_binned_l, verbose_=True)
 
     if calculate_acf:
         params_dict = {'isttc_25_40': {'bin_size': 25, 'n_lags': 40, 'bin_size_suffix': '25ms', 'metric': 'isttc',
@@ -142,7 +143,7 @@ if __name__ == "__main__":
                 print('Skipping...')
             else:
                 if v['metric'] == 'isttc':
-                    csv_data_file = data_folder + 'dataset\\cut_30min\\sua_list.csv'
+                    csv_data_file = data_folder + 'dataset\\cut_' + str(min_to_keep) + 'min\\sua_list.csv'
                     print(f'Loading file {csv_data_file}')
                     with open(csv_data_file, newline='') as f:
                         reader = csv.reader(f)
@@ -163,11 +164,11 @@ if __name__ == "__main__":
                         # print(spike_train_acf)
                         isttc_full_l.append(spike_train_acf)
 
-                    write_sua_csv(data_folder + 'dataset\\cut_30min\\acf_non_binned\\acf_non_binned_' + k + '.csv',
+                    write_sua_csv(data_folder + 'dataset\\cut_' + str(min_to_keep) + 'min\\isttc_full_' + k + '.csv',
                                   sua_list, isttc_full_l, verbose_=True)
 
                 if v['metric'] == 'acf':
-                    csv_data_file = data_folder + 'dataset\\cut_30min\\sua_list_binned_' + v['bin_size_suffix'] + '.csv'
+                    csv_data_file = data_folder + 'dataset\\cut_' + str(min_to_keep) + 'min\\sua_list_binned_' + v['bin_size_suffix'] + '.csv'
                     print(f'Loading file {csv_data_file}')
                     with open(csv_data_file, newline='') as f:
                         reader = csv.reader(f)
@@ -182,23 +183,25 @@ if __name__ == "__main__":
                         spike_train_binned_acf = acf(spike_train_binned_int, nlags=v['n_lags'])
                         acf_full_l.append(spike_train_binned_acf)
 
-                    write_sua_csv(data_folder + 'dataset\\cut_30min\\acf_binned\\acf_binned_' + k + '.csv',
+                    write_sua_csv(data_folder + 'dataset\\cut_' + str(min_to_keep) + 'min\\acf_full_' + k + '.csv',
                                   sua_list_binned, acf_full_l, verbose_=True)
 
     if calculate_trials:
         signal_len = int(30 * 60 * fs)
         n_lags = 20
         bin_size = 50  # in ms
-        sttc_dt = int(25 * (fs / 1000))
+        # sttc_dt = int(25 * (fs / 1000))
+        sttc_dt_avg = int(50 * (fs / 1000) - 1)
+        sttc_dt_concat = int(25 * (fs / 1000))
         trial_len = int(n_lags * bin_size * (fs / 1000))
 
-        n_trials = 40  # this is fixed based on experimental datasets
-        m_iterations = 100
+        n_trials = 100  # this is fixed based on experimental datasets
+        m_iterations = 1
 
-        with open(data_folder + 'dataset\\cut_30min\\trial_dict.pkl', 'rb') as f:
+        with open(data_folder + 'dataset\\cut_30min\\trial_100_dict.pkl', 'rb') as f:
             trial_dict = pickle.load(f)
 
-        with open(data_folder + 'dataset\\cut_30min\\trial_binned_dict.pkl', 'rb') as f:
+        with open(data_folder + 'dataset\\cut_30min\\trial_binned_100_dict.pkl', 'rb') as f:
             trial_binned_dict = pickle.load(f)
 
 
@@ -207,7 +210,7 @@ if __name__ == "__main__":
         # sys.stdout = open(output_log, 'w')
 
         items_to_process = 2000
-        start_idx = 1000
+        start_idx = 0
         stop_idx = len(trial_dict)
 
         if calculate_trials_pearsonr:
@@ -243,7 +246,7 @@ if __name__ == "__main__":
                                               'acf': pearson_avg_acf_l,
                                               'acf_matrix': pearson_avg_acf_matrix_l}
 
-            with open(data_folder + '\\dataset\\cut_30min\\binned\\acf\\pearsonr_trial_avg_50ms_20lags_dict_test.pkl', "wb") as f:
+            with open(data_folder + '\\dataset\\cut_30min\\binned\\pearsonr_trial_avg_50ms_20lags_100trials_dict.pkl', "wb") as f:
                 pickle.dump(pearsonr_trial_avg_dict, f)
 
         if calculate_trials_sttc_avg:
@@ -262,7 +265,7 @@ if __name__ == "__main__":
                     sttc_acf_matrix, sttc_acf_average = acf_sttc_trial_avg(spikes_trials,
                                                                            n_lags_=n_lags,
                                                                            lag_shift_=int(bin_size * (fs / 1000)),
-                                                                           sttc_dt_=sttc_dt,
+                                                                           sttc_dt_=sttc_dt_avg,
                                                                            zero_padding_len_=int(150 * (fs / 1000)),
                                                                            verbose_=False)
                     fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(sttc_acf_average, start_idx_=1,
@@ -282,7 +285,7 @@ if __name__ == "__main__":
                                           'acf': sttc_avg_acf_l,
                                           'acf_matrix': sttc_avg_acf_matrix_l}
 
-            with open(data_folder + '\\dataset\\cut_30min\\non_binned\\acf\\sttc_trial_avg_50ms_20lags_dict_test.pkl', "wb") as f:
+            with open(data_folder + '\\dataset\\cut_30min\\non_binned\\sttc_trial_avg_50ms_20lags_dict_test.pkl', "wb") as f:
                 pickle.dump(sttc_trial_avg_dict, f)
 
         if calculate_trials_sttc_concat:
@@ -301,7 +304,7 @@ if __name__ == "__main__":
                     acf_concat = acf_sttc_trial_concat(spikes_trials,
                                                        n_lags_=n_lags,
                                                        lag_shift_=int(bin_size * (fs / 1000)),
-                                                       sttc_dt_=sttc_dt,
+                                                       sttc_dt_=sttc_dt_concat,
                                                        trial_len_=trial_len,
                                                        zero_padding_len_=int(3000 * (fs / 1000)),
                                                        verbose_=False)
