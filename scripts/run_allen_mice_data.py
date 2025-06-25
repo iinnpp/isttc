@@ -51,9 +51,9 @@ if __name__ == "__main__":
     bin_spikes = False
     calculate_acf = False
     calculate_trials = True
-    calculate_trials_pearsonr = True
+    calculate_trials_pearsonr = False
     calculate_trials_sttc_avg = False
-    calculate_trials_sttc_concat = False
+    calculate_trials_sttc_concat = True
 
     min_to_keep = 30
 
@@ -323,7 +323,7 @@ if __name__ == "__main__":
                 sttc_trial_concat_dict[k] = {'taus': sttc_concat_l,
                                              'acf': sttc_concat_acf_l}
 
-            with open(data_folder + '\\dataset\\cut_30min\\non_binned\\acf\\sttc_trial_concat_50ms_20lags_dict_dt25_1000_end.pkl', "wb") as f:
+            with open(data_folder + '\\dataset\\cut_30min\\non_binned\\sttc_trial_concat_50ms_20lags_100trials_dict.pkl', "wb") as f:
                 pickle.dump(sttc_trial_concat_dict, f)
 
         # sys.stdout = old_stdout
