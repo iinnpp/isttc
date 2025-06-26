@@ -15,8 +15,8 @@ if __name__ == "__main__":
 
     calculate_trials = False
 
-    calculate_acf_full = True
-    calculate_sttc_full = False
+    calculate_acf_full = False
+    calculate_sttc_full = True
     calculate_trials_pearsonr = False
     calculate_trials_sttc_avg = False
     calculate_trials_sttc_concat = False
@@ -29,7 +29,7 @@ if __name__ == "__main__":
     sttc_dt_full = int(25 * (fs / 1000))
 
     if calculate_acf_full or calculate_sttc_full:
-        with open(dataset_folder + '1_spike_trains_3params_var_len_100000_dict.pkl', 'rb') as f:
+        with open(dataset_folder + '1_trial_3params_var_len450sec_100000_dict.pkl', 'rb') as f:
             data = pickle.load(f)
 
         spike_trains = data['spike_trains']
@@ -74,7 +74,7 @@ if __name__ == "__main__":
                 acf_full_dict[unit_id_idx] = {'taus': taus, 'acf': unit_acf}
 
             # save
-            with open(results_folder + 'acf_full_50ms_20lags_var_len_dict.pkl', "wb") as f:
+            with open(results_folder + 'acf_full_50ms_20lags_len_300sec_dict.pkl', "wb") as f:
                 pickle.dump(acf_full_dict, f)
 
         if calculate_sttc_full:
@@ -83,6 +83,7 @@ if __name__ == "__main__":
             for unit_idx, unit in enumerate(spike_trains):
                 if unit_idx % 100 == 0:
                     print(f'Processing unit {unit_idx}')
+                signal_len = duration_ms[unit_idx]
                 spike_train_int = np.asarray([int(spike) for spike in unit])
                 spike_train_acf = acf_sttc(spike_train_int, n_lags, bin_size, sttc_dt_full, signal_len, verbose_=False)
                 acf_isttc_full_l.append(spike_train_acf)
@@ -106,7 +107,7 @@ if __name__ == "__main__":
                 isttc_full_dict[unit_id_idx] = {'taus': taus, 'acf': unit_acf}
 
             # save
-            with open(results_folder + 'acf_isttc_full_50ms_20lags_dict.pkl', "wb") as f:
+            with open(results_folder + 'acf_isttc_full_50ms_20lags_len_450sec_dict.pkl', "wb") as f:
                 pickle.dump(isttc_full_dict, f)
 
 
