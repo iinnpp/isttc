@@ -5,16 +5,14 @@ library(emmeans)
 library(lme4)
 library(lmerTest)
 library(ggplot2)
-library(moments)
+#library(moments)
 library(ggeffects)
-library(robustlmm)
-library(glmmTMB)
 library(patchwork)  
 library(forcats)
 library(scales)
 
 
-df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\param_fr_alpha_tau\\tau_plot_long_var_len_df.csv", 
+df <- read.csv("D:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\param_fr_alpha_tau\\tau_plot_long_var_len_5durations_df.csv", 
                stringsAsFactors = TRUE)
 
 # relevel
@@ -154,7 +152,7 @@ p <- plot_model(
   vline.color = "blue",
   width = 0.1
 )
-p10 <- p + scale_y_continuous(limits = c(-0.2, 0.05))
+p10 <- p + scale_y_continuous(limits = c(-0.175, 0.075))
 p10 + coord_flip()
 
 
@@ -211,7 +209,14 @@ new_duration <- expand.grid(
   duration_ms_s   = duration_grid,
   method          = levels(df$method)
 )
-X_duration    <- model.matrix(~ method * (duration_ms_s), new_duration)
+new_duration <- new_duration %>%
+  mutate(
+    fr_s = 0,
+    alpha_s = 0,
+    tau_ms_true_s = 0
+  )
+
+X_duration    <- model.matrix(~ method * (duration_ms_s + fr_s + alpha_s + tau_ms_true_s), new_duration)
 
 
 beta    <- fixef(model_win_reml)
@@ -232,6 +237,14 @@ p1 <- ggplot(new_duration, aes(x = duration_s, y = pred_log, color = method, fil
   geom_line(size = 1) +
   geom_ribbon(aes(ymin = ci_low, ymax = ci_high), alpha = 0.2, color = NA) +
   labs(x = "Duration (sec)", y = "Predicted log tau diff") +
+  scale_y_continuous(
+    breaks = log10(c(10, 15, 20, 25, 30)),
+    labels = c("10", "15", "20", "25", "30")
+  ) +
+  scale_x_continuous(
+    breaks = c(60, 150, 300, 450, 600),
+    labels = c("60", "150", "300", "450", "600")
+  ) +
   scale_color_manual(values = c("#708090","#00A9E2")) +
   scale_fill_manual(values = c("#708090","#00A9E2")) +
   theme_minimal(base_size = 14)

@@ -5,15 +5,15 @@ library(emmeans)
 library(lme4)
 library(lmerTest)
 library(ggplot2)
-library(moments)
+#library(moments)
 library(ggeffects)
-library(robustlmm)
-library(glmmTMB)
+#library(robustlmm)
+#library(glmmTMB)
 library(patchwork)  
 library(forcats)
 library(scales)
 
-df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\param_fr_alpha_tau\\tau_plot_long_trials_parametric_df.csv", 
+df <- read.csv("D:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\param_fr_alpha_tau\\tau_plot_long_trials_parametric_df.csv", 
                stringsAsFactors = TRUE)
 
 # relevel
@@ -166,18 +166,27 @@ fe <- tidy(model_win_reml, effects = "fixed", conf.int = TRUE) %>%
     ci.low    = (10**conf.low - 1)*100,             
     ci.high   = (10**conf.high - 1)*100,                
     term      = recode(term, # labels
-                       "methodsttc_trial_avg" = "Pearsonr vs STTC avg",
                        "methodsttc_trial_concat" = "Pearsonr vs STTC concat",
                        "n_trials_s" = "N trials",
-                       "methodsttc_trial_avg:n_trials_s" = "STTC avg × N trials",
-                       "methodsttc_trial_concat:n_trials_s" = "STTC concat × N trials"),
+                       "fr_s" = "Firing rate (SD)",
+                       "alpha_s" = "Alpha (SD)",
+                       "tau_ms_true_s" = "True tau (SD)",
+                       "methodsttc_trial_concat:n_trials_s" = "STTC concat × N trials",
+                       "methodsttc_trial_concat:fr_s" = "STTC concat × FR",
+                       "methodsttc_trial_concat:alpha_s" = "STTC concat × Alpha",
+                       "methodsttc_trial_concat:tau_ms_true_s" = "STTC concat × True tau"),
     
     term = factor(term, levels = c(
-      "Pearsonr vs STTC avg",
       "Pearsonr vs STTC concat",
       "N trials",
-      "STTC avg × N trials",
-      "STTC concat × N trials"
+      "Firing rate (SD)",
+      "Alpha (SD)",
+      "True tau (SD)",
+      "STTC concat × N trials",
+      "STTC concat × FR",
+      "STTC concat × Alpha",
+      "STTC concat × True tau"
+      
     )),
     term = factor(term, levels = rev(levels(factor(term)))))
 
@@ -203,7 +212,15 @@ new_duration <- expand.grid(
   n_trials_s   = duration_grid,
   method          = levels(df$method)
 )
-X_duration    <- model.matrix(~ method * (n_trials_s), new_duration)
+
+new_duration <- new_duration %>%
+  mutate(
+    fr_s = 0,
+    alpha_s = 0,
+    tau_ms_true_s = 0
+  )
+
+X_duration    <- model.matrix(~ method * (n_trials_s + fr_s + alpha_s + tau_ms_true_s), new_duration)
 
 
 beta    <- fixef(model_win_reml)
@@ -224,6 +241,11 @@ p1 <- ggplot(new_duration, aes(x = n_trials, y = pred_log, color = method, fill 
   geom_line(size = 1) +
   geom_ribbon(aes(ymin = ci_low, ymax = ci_high), alpha = 0.2, color = NA) +
   labs(x = "N trials", y = "Predicted log tau diff") +
+  scale_y_continuous(
+    breaks = log10(c(60, 80, 100, 120, 140, 160)),
+    labels = c("60", "80", "100", "120", "140", "160"),
+    limits = log10(c(60, 160))
+  ) +
   scale_color_manual(values = c("#f4a91c","#955da2")) +
   scale_fill_manual(values = c("#f4a91c","#955da2")) +
   theme_minimal(base_size = 14)
