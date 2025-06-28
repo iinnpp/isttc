@@ -53,7 +53,7 @@ if __name__ == "__main__":
     calculate_trials = True
     calculate_trials_pearsonr = True
     calculate_trials_sttc_avg = False
-    calculate_trials_sttc_concat = False
+    calculate_trials_sttc_concat = True
 
     min_to_keep = 30
 
@@ -195,13 +195,13 @@ if __name__ == "__main__":
         sttc_dt_concat = int(25 * (fs / 1000))
         trial_len = int(n_lags * bin_size * (fs / 1000))
 
-        n_trials = 150  # this is fixed based on experimental datasets
+        n_trials = 100  # this is fixed based on experimental datasets
         m_iterations = 1
 
-        with open(data_folder + 'dataset\\cut_30min\\trial_150_dict.pkl', 'rb') as f:
+        with open(data_folder + 'dataset\\cut_30min\\trial_' + str(n_trials) + '_dict.pkl', 'rb') as f:
             trial_dict = pickle.load(f)
 
-        with open(data_folder + 'dataset\\cut_30min\\trial_binned_150_dict.pkl', 'rb') as f:
+        with open(data_folder + 'dataset\\cut_30min\\trial_binned_' + str(n_trials) + '_dict.pkl', 'rb') as f:
             trial_binned_dict = pickle.load(f)
 
 
@@ -246,7 +246,7 @@ if __name__ == "__main__":
                                               'acf': pearson_avg_acf_l,
                                               'acf_matrix': pearson_avg_acf_matrix_l}
 
-            with open(data_folder + '\\dataset\\cut_30min\\binned\\pearsonr_trial_avg_50ms_20lags_150trials_dict.pkl', "wb") as f:
+            with open(data_folder + '\\dataset\\cut_30min\\binned\\pearsonr_trial_avg_50ms_20lags_' + str(n_trials) + 'trials_dict.pkl', "wb") as f:
                 pickle.dump(pearsonr_trial_avg_dict, f)
 
         if calculate_trials_sttc_avg:
@@ -323,7 +323,7 @@ if __name__ == "__main__":
                 sttc_trial_concat_dict[k] = {'taus': sttc_concat_l,
                                              'acf': sttc_concat_acf_l}
 
-            with open(data_folder + '\\dataset\\cut_30min\\non_binned\\sttc_trial_concat_50ms_20lags_200trials_dict.pkl', "wb") as f:
+            with open(data_folder + '\\dataset\\cut_30min\\non_binned\\sttc_trial_concat_50ms_20lags_' + str(n_trials) + 'trials_dict.pkl', "wb") as f:
                 pickle.dump(sttc_trial_concat_dict, f)
 
         # sys.stdout = old_stdout
