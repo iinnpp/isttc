@@ -133,8 +133,8 @@ p1 <- ggplot(new_duration, aes(x = n_trials, y = pred_log, color = method, fill 
   geom_ribbon(aes(ymin = ci_low, ymax = ci_high), alpha = 0.2, color = NA) +
   labs(x = "Duration (sec)", y = "Predicted log tau diff") +
   scale_y_continuous(
-    breaks = log10(c(100, 150, 200, 250)),
-    labels = c("100", "150", "200", "250")
+    breaks = log10(c(150, 200, 250, 300)),
+    labels = c("150", "200", "250", "300")
     #  ) +
     #  scale_x_continuous(
     #    breaks = c(60, 150, 300, 450, 600),

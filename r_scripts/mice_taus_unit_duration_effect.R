@@ -54,7 +54,7 @@ p <- plot_model(
   vline.color = "blue",
   width = 0.1
 )
-p10 <- p + scale_y_continuous(limits = c(-0.175, 0.075))
+p10 <- p + scale_y_continuous(limits = c(-0.3, 0.3))
 p10 + coord_flip()
 
 
@@ -135,12 +135,12 @@ p1 <- ggplot(new_duration, aes(x = length, y = pred_log, color = method, fill = 
   geom_ribbon(aes(ymin = ci_low, ymax = ci_high), alpha = 0.2, color = NA) +
   labs(x = "Duration (sec)", y = "Predicted log tau diff") +
   scale_y_continuous(
-    breaks = log10(c(1, 5, 10, 20)),
+    breaks = log10(c(20, 30, 40, 50)),
+    labels = c("20", "30", "40", "50")
+  ) +
+  scale_x_continuous(
+    breaks = c(1, 5, 10, 20),
     labels = c("1", "5", "10", "20")
-#  ) +
-#  scale_x_continuous(
-#    breaks = c(60, 150, 300, 450, 600),
-#    labels = c("60", "150", "300", "450", "600")
   ) +
   scale_color_manual(values = c("#708090","#00A9E2")) +
   scale_fill_manual(values = c("#708090","#00A9E2")) +
