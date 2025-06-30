@@ -373,7 +373,11 @@ new_tau <- new_tau %>%
 p1 <- ggplot(new_fr, aes(x = fr, y = pred_log, color = method, fill = method)) +
   geom_line(size = 1) +
   geom_ribbon(aes(ymin = ci_low, ymax = ci_high), alpha = 0.2, color = NA) +
-  labs(x = "Firing rate (Hz)", y = "Predicted log-τ-diff") +
+  labs(x = "Firing rate (Hz)", y = "Predicted REE") +
+  scale_y_continuous(
+    breaks = log10(c(100, 130, 160)),
+    labels = c("100", "130", "160")
+  ) +
   scale_color_manual(values = c("#f4a91c","#a49fce","#955da2")) +
   scale_fill_manual(values = c("#f4a91c","#a49fce","#955da2")) +
   theme_minimal(base_size = 14)
@@ -382,6 +386,10 @@ p2 <- ggplot(new_alpha, aes(x = alpha, y = pred_log, color = method, fill = meth
   geom_line(size = 1) +
   geom_ribbon(aes(ymin = ci_low, ymax = ci_high), alpha = 0.2, color = NA) +
   labs(x = "Excitation strength (a.u.)", y = NULL) +
+  scale_y_continuous(
+    breaks = log10(c(25, 50, 100, 250, 500, 1000)),
+    labels = c("25","50", "100", "250", "500", "1000")
+  ) +
   scale_color_manual(values = c("#f4a91c","#a49fce","#955da2")) +
   scale_fill_manual(values = c("#f4a91c","#a49fce","#955da2")) +
   theme_minimal(base_size = 14)
@@ -390,6 +398,10 @@ p3 <- ggplot(new_tau, aes(x = tau_ms_true, y = pred_log, color = method, fill = 
   geom_line(size = 1) +
   geom_ribbon(aes(ymin = ci_low, ymax = ci_high), alpha = 0.2, color = NA) +
   labs(x = "True tau", y = NULL) +
+  scale_y_continuous(
+    breaks = log10(c(50, 100, 200, 400)),
+    labels = c("50", "100", "200", "400")
+  ) +
   scale_color_manual(values = c("#f4a91c","#a49fce","#955da2")) +
   scale_fill_manual(values = c("#f4a91c","#a49fce","#955da2")) +
   theme_minimal(base_size = 14)

@@ -364,25 +364,37 @@ new_tau <- new_tau %>%
 p1 <- ggplot(new_fr, aes(x = fr, y = pred_log, color = method, fill = method)) +
   geom_line(size = 1) +
   geom_ribbon(aes(ymin = ci_low, ymax = ci_high), alpha = 0.2, color = NA) +
-  labs(x = "Firing rate (Hz)", y = "Predicted log-τ-diff") +
-  scale_color_manual(values = c("steelblue","firebrick")) +
-  scale_fill_manual(values = c("steelblue","firebrick")) +
+  labs(x = "Firing rate (Hz)", y = "Predicted REE") +
+  scale_y_continuous(
+    breaks = log10(c(5, 10, 15, 20)),
+    labels = c("5", "10", "15", "20")
+  ) +
+  scale_color_manual(values = c("#708090","#00A9E2")) +
+  scale_fill_manual(values = c("#708090","#00A9E2")) +
   theme_minimal(base_size = 14)
 
 p2 <- ggplot(new_alpha, aes(x = alpha, y = pred_log, color = method, fill = method)) +
   geom_line(size = 1) +
   geom_ribbon(aes(ymin = ci_low, ymax = ci_high), alpha = 0.2, color = NA) +
   labs(x = "Excitation strength (a.u.)", y = NULL) +
-  scale_color_manual(values = c("steelblue","firebrick")) +
-  scale_fill_manual(values = c("steelblue","firebrick")) +
+  scale_y_continuous(
+    breaks = log10(c(5, 10, 15, 20)),
+    labels = c("5", "10", "15", "20")
+  ) +
+  scale_color_manual(values = c("#708090","#00A9E2")) +
+  scale_fill_manual(values = c("#708090","#00A9E2")) +
   theme_minimal(base_size = 14)
 
 p3 <- ggplot(new_tau, aes(x = tau_ms_true, y = pred_log, color = method, fill = method)) +
   geom_line(size = 1) +
   geom_ribbon(aes(ymin = ci_low, ymax = ci_high), alpha = 0.2, color = NA) +
   labs(x = "True tau", y = NULL) +
-  scale_color_manual(values = c("steelblue","firebrick")) +
-  scale_fill_manual(values = c("steelblue","firebrick")) +
+  scale_y_continuous(
+    breaks = log10(c(5, 10, 15, 20)),
+    labels = c("5", "10", "15", "20")
+  ) +
+  scale_color_manual(values = c("#708090","#00A9E2")) +
+  scale_fill_manual(values = c("#708090","#00A9E2")) +
   theme_minimal(base_size = 14)
 
 library(patchwork)
