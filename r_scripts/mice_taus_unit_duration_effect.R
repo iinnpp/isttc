@@ -12,7 +12,7 @@ library(forcats)
 library(scales)
 
 
-df <- read.csv("D:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\mice\\dataset\\tau_unit_long_2_methods_var_lenght_df.csv", 
+df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\mice\\dataset\\tau_unit_long_2_methods_var_lenght_df.csv", 
                stringsAsFactors = TRUE)
 df <- df %>% filter(length < 30)
 
@@ -41,6 +41,7 @@ model_log <- lmer(
 )
 
 summary(model_log)
+confint(model_log)
 
 
 # forest plot of fixed effects - simple version

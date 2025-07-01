@@ -12,7 +12,7 @@ library(forcats)
 library(scales)
 
 
-df <- read.csv("D:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\param_fr_alpha_tau\\tau_plot_long_var_len_5durations_df.csv", 
+df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\param_fr_alpha_tau\\tau_plot_long_var_len_5durations_df.csv", 
                stringsAsFactors = TRUE)
 
 # relevel
@@ -134,6 +134,7 @@ cat("Residual skewness:", round(res_win_skew, 3), "\n")
 cat("Residual kurtosis:", round(res_win_kurt, 3), "\n")
 
 summary(model_win_reml)
+confint(model_win_reml)
 
 
 ##################################################################

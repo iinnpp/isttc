@@ -12,7 +12,7 @@ library(forcats)
 library(scales)
 
 
-df <- read.csv("D:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\mice\\dataset\\cut_30min\\tau_long_2trial_methods_df.csv", 
+df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\mice\\dataset\\cut_30min\\tau_long_2trial_methods_df.csv", 
                stringsAsFactors = TRUE)
 # df <- df %>% filter(fr_hz_spont_30min <= 10)
 #summary(df)
@@ -43,6 +43,7 @@ model_log <- lmer(
 )
 
 summary(model_log)
+confint(model_log)
 
 # compare model with and without interaction
 

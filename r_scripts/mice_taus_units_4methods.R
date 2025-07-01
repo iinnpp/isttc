@@ -12,7 +12,7 @@ library(forcats)
 library(scales)
 
 
-df <- read.csv("D:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\mice\\dataset\\cut_30min\\tau_long_4_methods_df.csv", 
+df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\mice\\dataset\\cut_30min\\tau_long_4_methods_df.csv", 
                stringsAsFactors = TRUE)
 
 # relevel
@@ -35,6 +35,7 @@ model_log <- lmer(
 )
 
 summary(model_log)
+confint(model_log)
 
 # forest plot of fixed effects - simple version
 plot_model(
