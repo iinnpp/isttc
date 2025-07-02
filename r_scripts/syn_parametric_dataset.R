@@ -170,6 +170,7 @@ cat("Residual skewness:", round(res_win_skew, 3), "\n")
 cat("Residual kurtosis:", round(res_win_kurt, 3), "\n")
 
 summary(model_win_reml)
+confint(model_win_reml)
 
 
 ##################################################################
