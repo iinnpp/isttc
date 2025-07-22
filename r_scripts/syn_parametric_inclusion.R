@@ -16,8 +16,7 @@ library(scales)
 
 df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\param_fr_alpha_tau\\tau_plot_all_long_not_nan_df.csv", 
                stringsAsFactors = TRUE)
-trials_df <- df[df$method %in% c("pearsonr_trial_avg", "sttc_trial_concat"), ]
-trials_df <- droplevels(trials_df[df$method %in% c("acf_full", "isttc_full"), ])
+trials_df <- droplevels(df[df$method %in% c("pearsonr_trial_avg", "sttc_trial_concat"), ])
 
 
 #summary(df)
@@ -34,12 +33,11 @@ trials_df <- trials_df %>%
   )
 
 
-
 model_non_log <- lmer(
   fit_r_squared ~ method * (fr_s + alpha_s + tau_ms_true_s)
   + (1 | unit_id),
   data = trials_df,
-  REML = FALSE
+  REML = TRUE
 )
 
 summary(model_non_log)

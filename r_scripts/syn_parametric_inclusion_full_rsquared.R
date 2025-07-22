@@ -38,7 +38,7 @@ model_non_log <- lmer(
   fit_r_squared ~ method * (fr_s + alpha_s + tau_ms_true_s)
   + (1 | unit_id),
   data = trials_df,
-  REML = FALSE
+  REML = TRUE
 )
 
 summary(model_non_log)
@@ -59,6 +59,24 @@ res_skew <- skewness(res)
 res_kurt <- kurtosis(res)
 cat("Residual skewness:", round(res_skew, 3), "\n")
 cat("Residual kurtosis:", round(res_kurt, 3), "\n")
+
+qs <- quantile(trials_df$fit_r_squared, probs = c(0.025, 0.975), na.rm = TRUE)
+lo <- qs[1]; hi <- qs[2]
+# pull everything below lo up to lo, above hi down to hi
+trials_df <- trials_df %>%
+  mutate(
+    fit_r_squared_win = pmax(pmin(fit_r_squared, hi), lo)
+  )
+
+model_win <- lmer(
+  fit_r_squared_win ~ method * (fr_s + alpha_s + tau_ms_true_s)
+  + (1 | unit_id),
+  data   = trials_df,
+  REML   = TRUE
+)
+
+summary(model_win)
+
 
 ### Plots ###
 # forest plot of fixed effects - simple version
