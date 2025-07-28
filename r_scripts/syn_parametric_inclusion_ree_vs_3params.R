@@ -23,105 +23,110 @@ df <- df %>%
     log_tau_diff = log10(tau_diff_rel)
   )
 
+
+#######################
+##### MODELS #####
+
+#######################
 ##### ACF decline #####
+
 # relevel
 df$acf_decline <- relevel(df$acf_decline, ref = "False")
 
-model_simple <- lmer(
+model_acf_decline <- lmer(
   log_tau_diff ~ acf_decline + (1 | unit_id),
   data = df,
   REML = TRUE
 )
-summary(model_simple)
+summary(model_acf_decline)
+confint(model_acf_decline)
 
 
-##### fit_r_squared #####
-df <- df %>%
-  mutate(
-    log_fit_r_squared = log10(fit_r_squared)
-  )
-
-model_simple_r <- lmer(
-  log_tau_diff ~ fit_r_squared + (1 | unit_id),
-  data = df,
-  REML = TRUE
-)
-summary(model_simple_r)
-
-##### CI 0 #####
+#######################
+##### CI 0 ############
 # relevel
 df$ci_zero_excluded <- factor(df$ci_zero_excluded)
 df$ci_zero_excluded <- relevel(df$ci_zero_excluded, ref = "0")
 
-model_simple_ci <- lmer(
+model_ci <- lmer(
   log_tau_diff ~ ci_zero_excluded + (1 | unit_id),
   data = df,
   REML = TRUE
 )
-summary(model_simple_ci)
+summary(model_ci)
+confint(model_ci)
 
 
+#########################
+##### fit_r_squared #####
+df_pos_r2 <- df[df$fit_r_squared > 0, ]
+df_pos_r2 <- df_pos_r2 %>%
+  mutate(
+    log_fit_r_squared = log10(fit_r_squared)
+  )
 
-# violins
-ggplot(df, aes(x = acf_decline, y = log_tau_diff, fill = acf_decline)) +
-  geom_violin(trim = FALSE, scale = "width", alpha = 0.7) +
-  geom_boxplot(width = 0.1, outlier.shape = NA, alpha = 0.4) +
-  stat_summary(fun = median, geom = "point", shape = 23, size = 2, fill = "white") +
-  labs(
-    title = "REE log10",
-    x = "ACF Decline",
-    y = "log10(tau_diff_rel)",
-    fill = "ACF Decline"
-  ) +
-  theme_minimal() +
-  theme(
-    legend.position = "none",
-    text = element_text(size = 14)
+model_r_squared <- lmer(
+  log_tau_diff ~ log_fit_r_squared + (1 | unit_id),
+  data = df_pos_r2,
+  REML = TRUE
+)
+summary(model_r_squared)
+confint(model_r_squared)
+
+model_r_squared_non_neg <- lmer(
+  log_tau_diff ~ fit_r_squared + (1 | unit_id),
+  data = df,
+  REML = TRUE
+)
+summary(model_r_squared_non_neg)
+confint(model_r_squared_non_neg)
+
+#########################
+##### PLOTS #####
+
+# predicted values for r2
+
+# this gives out of memory
+# plot_model(model_r_squared, type='pred', terms='log_fit_r_squared', ci.lvl = .68)
+
+
+# plotting with new grid
+grid_r2 <- seq(min(df$fit_r_squared), max(df$fit_r_squared), length.out = 100)
+new_data <- data.frame(
+  fit_r_squared = grid_r2,
+  unit_id = NA  
+)
+
+X_new <- model.matrix(~ fit_r_squared, new_data)
+beta <- fixef(model_r_squared_non_neg)
+Vb   <- vcov(model_r_squared_non_neg)
+new_data <- new_data %>%
+  mutate(
+    pred_log  = as.numeric(X_new %*% beta),
+    se_log    = sqrt(diag(X_new %*% Vb %*% t(X_new))),
+    ci_low    = pred_log - 1.96 * se_log,
+    ci_high   = pred_log + 1.96 * se_log
   )
 
 
-# forest plot of fixed effects - simple version
-p <- plot_model(
-  model_simple, 
-  show.values = TRUE,
-  value.offset = .3,
-  value.size = 4,
-  dot.size = 2,
-  line.size = 1,
-  vline.color = "blue",
-  width = 0.1
-)
-p10 <- p + scale_y_continuous(limits = c(-1, -0.75))
-p10
-
-# forest plot of fixed effects
-fe <- tidy(model_simple, effects = "fixed", conf.int = TRUE) %>%
-  filter(term != "(Intercept)") %>% # drop the intercept
-  mutate(
-    ratio     = (10**estimate - 1)*100, # back‐transform
-    ci.low    = (10**conf.low - 1)*100,             
-    ci.high   = (10**conf.high - 1)*100,                
-    term      = recode(term, # labels
-                       "acf_declineTrue" = "acf_declineTrue"),
-    
-    term = factor(term, levels = c(
-      "acf_declineTrue"
-    )),
-    term = factor(term, levels = rev(levels(factor(term)))))
-
-ggplot(fe, aes(x = term, y = ratio)) +
-  geom_errorbar(aes(ymin = ci.low, ymax = ci.high), width = 0.2) +
-  geom_point(size = 3, color = "steelblue") +
-  coord_flip() +
-  scale_y_continuous(
-    name = "Effect on tau_diff_rel",
-    limits = c(-90, -85)
+p <- ggplot(new_data, aes(x = fit_r_squared, y = pred_log)) +
+  geom_line(color = "#00A9E2", size = 1) +
+  geom_ribbon(aes(ymin = ci_low, ymax = ci_high), alpha = 0.2, fill = "#00A9E2") +
+  labs(x = "R-squared (a.u.)", y = "Predicted REE") +
+    scale_y_continuous(
+      limits = c(1, 3),
+      breaks = log10(c(10, 100, 1000)),
+      labels = c("10", "100", "1000")
   ) +
-  labs(
-    x     = NULL,
-    title = "Fixed-Effects (Back-transformed from log10 to %)"
-  ) + 
   theme_minimal(base_size = 14)
+
+p
+
+
+
+
+
+
 
 
 
