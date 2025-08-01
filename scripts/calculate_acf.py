@@ -11,7 +11,6 @@ import warnings
 
 import numpy as np
 from scipy.stats import pearsonr, ConstantInputWarning
-from statsmodels.tsa.stattools import acf
 
 
 def autocorr_pearsonr(signal_, lag_=1, verbose_=True):

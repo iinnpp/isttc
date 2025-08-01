@@ -1,10 +1,7 @@
 import csv
-import sys
 import pickle
 import numpy as np
 import pandas as pd
-import random
-from scipy import stats
 
 from scripts.calculate_acf import acf_pearsonr_trial_avg, acf_sttc_trial_avg, acf_sttc_trial_concat
 from scripts.calculate_tau import fit_single_exp, func_single_exp_monkey

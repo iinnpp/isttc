@@ -3,7 +3,6 @@ from itertools import islice
 import pickle
 import csv
 import os
-import sys
 from datetime import datetime
 from statsmodels.tsa.stattools import acf
 
