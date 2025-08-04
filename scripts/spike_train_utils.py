@@ -1,7 +1,3 @@
-"""
-todo
-"""
-
 import numpy as np
 from random import randrange
 
@@ -165,20 +161,6 @@ def get_lv(spike_train_int_l_, verbose_=False):
             print('n_isi < 2: skipping the unit...')
 
     return lv
-
-# def get_firing_rate(spike_train_int_l_, fs_):
-#     """
-#     Calculate firing rate for a single unit.
-#
-#     :param spike_train_int_l_: list, list of spike times (int), sampling frequency fs_
-#     :param fs_: int, sampling frequency in Hz
-#     :return: float, firing rate, Hz
-#     """
-#     n_spikes = len(spike_train_int_l_)
-#     last_spike_ts_s = spike_train_int_l_[-1] / fs_
-#     fr = n_spikes / last_spike_ts_s
-#
-#     return fr
 
 
 
