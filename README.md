@@ -1,8 +1,8 @@
 # iSTTC
 
-This repository relates to **iSTTC: a novel method for robust and accurate estimation of intrinsic neural timescales** 
+This repository relates to **iSTTC: a robust method for accurate estimation of intrinsic neural timescales from single-unit recordings** 
 
-Preprint on biorxiv (([here][isttc_biorxiv]).
+Preprint on biorxiv ([here][isttc_biorxiv]).
 
 [isttc_biorxiv]:https://www.biorxiv.org/content/10.1101/2025.08.01.668071v1
 
