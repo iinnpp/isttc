@@ -7,29 +7,30 @@ from scripts.spike_train_utils import get_trials, bin_trials
 from scripts.cfg_global import project_folder_path
 
 
+# ========== Parameters ==========
+# ACF calculation params
+fs = 1000  # data sampling frequency in Hz
+n_lags = 20 # number of lags to calculate autocorrelation
+bin_size = int(50 * fs / 1000) # in ms
+sttc_dt_full = int(25 * fs / 1000) # dt for iSTTC on full signal and on concat trials, in ms
+sttc_dt_avg = int(50 * (fs / 1000) - 1) # dt for iSTTC in trial-averaged style (like PearsonR)
+n_trials = 40  # this is fixed based on experimental datasets
+trial_len = int(n_lags * bin_size * (fs / 1000))
+m_iterations = [50, 100, 200, 500, 1000]
+n_total_signal_l = [100] # sampled from the whole dataset
+signal_len = int(10 * 60 * fs)  # duration_ms
+
+# File paths
+dataset_folder = project_folder_path + 'results\\synthetic_data\\dataset\\'
+
+# ========== Main ==========
 if __name__ == "__main__":
     np.random.seed(42)
-
-    dataset_folder = project_folder_path + 'results\\synthetic_data\\dataset\\'
-
     # load data
     spike_trains_10min = np.load(dataset_folder + 'spike_trains_tau100ms_alpha0_3_fr3_5hz_len600sec_1000.npy', allow_pickle=True)
     print(f'n spike trains {len(spike_trains_10min)}, len {spike_trains_10min[0][-1]/1000}')
 
     # estimate M
-    fs = 1000
-    signal_len = int(10 * 60 * fs) # duration_ms
-    n_lags = 20
-    bin_size = 50  # in ms
-    sttc_dt_avg = int(50 * (fs / 1000) - 1)
-    sttc_dt_concat = int(25 * (fs / 1000))
-    trial_len = int(n_lags * bin_size * (fs / 1000))
-
-    n_trials = 40  # this is fixed based on experimental datasets
-    m_iterations = [50, 100, 200, 500, 1000]
-
-    n_total_signal_l = [100]
-
     for n_total_signals in n_total_signal_l:
         print(f'Running for n_total_signals = {n_total_signals}')
         units_to_sample = np.random.choice(len(spike_trains_10min), size=n_total_signals, replace=False)
@@ -42,13 +43,11 @@ if __name__ == "__main__":
 
         # dict: key is unit_id and value taus for all m_iterations
         pearsonr_avg_taus_dict, sttc_avg_taus_dict, sttc_concat_taus_dict = {}, {}, {}
-
         for signal_idx, signal in enumerate(random_signals):
             print(f'###\nCalculating for {signal_idx} signal')
             spikes = np.asarray([int(spike) for spike in signal])
             # dict: key is m_iteration and value taus for all iterations (e.g. for m_iteration=50 50 taus)
             pearsonr_avg_iteration_taus_dict, sttc_avg_iteration_taus_dict, sttc_concat_iteration_taus_dict = {}, {}, {}
-
             for m_iteration in m_iterations:
                 print(f'calculating for {m_iteration} resampling iterations')
                 pearsonr_avg_taus_l, sttc_avg_taus_l, sttc_concat_taus_l = [], [], []
@@ -57,49 +56,37 @@ if __name__ == "__main__":
                     spikes_trials_binned = bin_trials(spikes_trials, trial_len, int(bin_size * (fs / 1000)))
                     # pearsonr
                     _, acf_average = acf_pearsonr_trial_avg(spikes_trials_binned, n_lags, verbose_=False)
-                    fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(
-                        acf_average, start_idx_=1, exp_fun_=func_single_exp_monkey)
-                    pearsonr_avg_taus_l.append({'tau':tau,
-                                          'tau_lower':tau_ci[0],
-                                          'tau_upper':tau_ci[1],
-                                          'fit_r_squared': fit_r_squared,
-                                          'explained_var': explained_var,
-                                          'popt': fit_popt,
-                                          'pcov': fit_pcov,
-                                          'log_message': log_message})
-                    # sttc avg
+                    fit = fit_single_exp(acf_average, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                    pearsonr_avg_taus_l.append({
+                        'tau': fit[2], 'tau_lower': fit[3][0], 'tau_upper': fit[3][1],
+                        'fit_r_squared': fit[4], 'explained_var': fit[5],
+                        'popt': fit[0], 'pcov': fit[1], 'log_message': fit[6]
+                    })
+                    # isttc avg
                     _, sttc_acf_average = acf_sttc_trial_avg(spikes_trials, n_lags_=n_lags,
-                                                                           lag_shift_=int(bin_size * (fs / 1000)),
+                                                                           lag_shift_=bin_size,
                                                                            sttc_dt_=sttc_dt_avg,
                                                                            zero_padding_len_=int(150 * (fs / 1000)),
                                                                            verbose_=False)
-                    fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(
-                        sttc_acf_average, start_idx_=1, exp_fun_=func_single_exp_monkey)
-                    sttc_avg_taus_l.append({'tau':tau,
-                                          'tau_lower':tau_ci[0],
-                                          'tau_upper':tau_ci[1],
-                                          'fit_r_squared': fit_r_squared,
-                                          'explained_var': explained_var,
-                                          'popt': fit_popt,
-                                          'pcov': fit_pcov,
-                                          'log_message': log_message})
-                    # sttc concat
+                    fit = fit_single_exp(sttc_acf_average, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                    sttc_avg_taus_l.append({
+                        'tau': fit[2], 'tau_lower': fit[3][0], 'tau_upper': fit[3][1],
+                        'fit_r_squared': fit[4], 'explained_var': fit[5],
+                        'popt': fit[0], 'pcov': fit[1], 'log_message': fit[6]
+                    })
+                    # isttc concat
                     acf_concat = acf_sttc_trial_concat(spikes_trials, n_lags_=n_lags,
-                                                       lag_shift_=int(bin_size * (fs / 1000)),
-                                                       sttc_dt_=sttc_dt_concat,
+                                                       lag_shift_=bin_size,
+                                                       sttc_dt_=sttc_dt_full,
                                                        trial_len_=trial_len,
                                                        zero_padding_len_=int(3000 * (fs / 1000)),
                                                        verbose_=False)
-                    fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(
-                        acf_concat, start_idx_=1, exp_fun_=func_single_exp_monkey)
-                    sttc_concat_taus_l.append({'tau':tau,
-                                          'tau_lower':tau_ci[0],
-                                          'tau_upper':tau_ci[1],
-                                          'fit_r_squared': fit_r_squared,
-                                          'explained_var': explained_var,
-                                          'popt': fit_popt,
-                                          'pcov': fit_pcov,
-                                          'log_message': log_message})
+                    fit = fit_single_exp(acf_concat, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                    sttc_concat_taus_l.append({
+                        'tau': fit[2], 'tau_lower': fit[3][0], 'tau_upper': fit[3][1],
+                        'fit_r_squared': fit[4], 'explained_var': fit[5],
+                        'popt': fit[0], 'pcov': fit[1], 'log_message': fit[6]
+                    })
 
                 pearsonr_avg_iteration_taus_dict[m_iteration] = pearsonr_avg_taus_l
                 sttc_avg_iteration_taus_dict[m_iteration] = sttc_avg_taus_l
