@@ -42,20 +42,24 @@ def write_sua_csv(csv_file_name_, sua_list_original_, sua_list_new_, verbose_=Fa
             writer.writerow(row)
 
 
+# ========== Parameters ==========
+# ACF calculation params
+fs = 30000  # neuropixels
+min_to_keep = 30
+
+# File paths
+data_folder = project_folder_path + 'results\\mice\\'
+
+# Execution flags
+trim_spikes = False
+bin_spikes = False
+calculate_acf = False
+calculate_trials = True
+calculate_trials_pearsonr = True
+calculate_trials_sttc_avg = False
+calculate_trials_sttc_concat = True
+
 if __name__ == "__main__":
-    data_folder = project_folder_path + 'results\\mice\\'
-    fs = 30000  # neuropixels
-
-    trim_spikes = False
-    bin_spikes = False
-    calculate_acf = False
-    calculate_trials = True
-    calculate_trials_pearsonr = True
-    calculate_trials_sttc_avg = False
-    calculate_trials_sttc_concat = True
-
-    min_to_keep = 30
-
     if trim_spikes:
         csv_data_file = data_folder + 'dataset\\allen_func_conn_around30min_spont_with_quality_metrics.csv'
         with open(csv_data_file, newline='') as f:
@@ -78,13 +82,7 @@ if __name__ == "__main__":
                       sua_list, sua_list_trimmed, verbose_=True)
 
     if bin_spikes:
-        params_dict = {'25ms': {'bin_size': 25, 'bin_size_suffix': '25ms', 'calc': False},
-                       '40ms': {'bin_size': 40, 'bin_size_suffix': '40ms', 'calc': False},
-                       '50ms': {'bin_size': 50, 'bin_size_suffix': '50ms', 'calc': True},
-                       '60ms': {'bin_size': 60, 'bin_size_suffix': '60ms', 'calc': False},
-                       '75ms': {'bin_size': 75, 'bin_size_suffix': '75ms', 'calc': False},
-                       '100ms': {'bin_size': 100, 'bin_size_suffix': '100ms', 'calc': False}
-                       }
+        params_dict = {'50ms': {'bin_size': 50, 'bin_size_suffix': '50ms', 'calc': True}}
         csv_data_file = data_folder + 'dataset\\cut_' + str(min_to_keep) + 'min\\sua_list_constrained.csv'
         with open(csv_data_file, newline='') as f:
             reader = csv.reader(f)
@@ -105,31 +103,10 @@ if __name__ == "__main__":
                               sua_list, sua_list_binned_l, verbose_=True)
 
     if calculate_acf:
-        params_dict = {'isttc_25_40': {'bin_size': 25, 'n_lags': 40, 'bin_size_suffix': '25ms', 'metric': 'isttc',
-                                       'calc': False},
-                       'isttc_40_25': {'bin_size': 40, 'n_lags': 25, 'bin_size_suffix': '40ms', 'metric': 'isttc',
-                                       'calc': False},
-                       'isttc_50_20': {'bin_size': 50, 'n_lags': 20, 'bin_size_suffix': '50ms', 'metric': 'isttc',
+        params_dict = {'isttc_50_20': {'bin_size': 50, 'n_lags': 20, 'bin_size_suffix': '50ms', 'metric': 'isttc',
                                        'calc': True},
-                       'isttc_60_16': {'bin_size': 60, 'n_lags': 16, 'bin_size_suffix': '60ms', 'metric': 'isttc',
-                                       'calc': False},
-                       'isttc_75_13': {'bin_size': 75, 'n_lags': 13, 'bin_size_suffix': '75ms', 'metric': 'isttc',
-                                       'calc': False},
-                       'isttc_100_10': {'bin_size': 100, 'n_lags': 10, 'bin_size_suffix': '100ms', 'metric': 'isttc',
-                                        'calc': False},
-                       'acf_25_40': {'bin_size': 25, 'n_lags': 40, 'bin_size_suffix': '25ms', 'metric': 'acf',
-                                     'calc': False},
-                       'acf_40_25': {'bin_size': 40, 'n_lags': 25, 'bin_size_suffix': '40ms', 'metric': 'acf',
-                                     'calc': False},
                        'acf_50_20': {'bin_size': 50, 'n_lags': 20, 'bin_size_suffix': '50ms', 'metric': 'acf',
-                                     'calc': False},
-                       'acf_60_16': {'bin_size': 60, 'n_lags': 16, 'bin_size_suffix': '60ms', 'metric': 'acf',
-                                     'calc': False},
-                       'acf_75_13': {'bin_size': 75, 'n_lags': 13, 'bin_size_suffix': '75ms', 'metric': 'acf',
-                                     'calc': False},
-                       'acf_100_10': {'bin_size': 100, 'n_lags': 10, 'bin_size_suffix': '100ms', 'metric': 'acf',
-                                      'calc': False}
-                       }
+                                     'calc': False}}
 
         # num_lags = 20
         # bin_size = int(50 * (fs / 1000))
