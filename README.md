@@ -8,6 +8,27 @@ Preprint on biorxiv ([here][isttc_biorxiv]).
 
 It includes tools to compute iSTTC-based autocorrelation functions, fit timescales on continuous or epoched spiking data, and replicate analyses from the associated paper.
 
+### Installation
+
+You can install the latest version of **isttc** directly from the GitHub repository:
+
+```bash
+pip install git+https://github.com/iinnpp/isttc.git
+```
+To install with optional plotting and notebook dependencies:
+
+```bash
+pip install "git+https://github.com/iinnpp/isttc.git#egg=isttc[plot,notebook]"
+```
+
+If you want to modify the code, clone the repository and install it in editable mode:
+
+```bash
+git clone https://github.com/iinnpp/isttc.git
+cd isttc
+pip install -e .
+```
+
 ### How to run
 
 Examples of how to use the iSTTC are in the Examples folder:
