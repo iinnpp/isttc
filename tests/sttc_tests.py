@@ -9,7 +9,7 @@ import quantities as pq
 from elephant.spike_train_correlation import spike_time_tiling_coefficient
 import neo
 
-from scripts.calculate_acf import sttc, acf_sttc
+from src.isttc.scripts.calculate_acf import sttc, acf_sttc
 
 
 def calc_sttc_elephant(spike_train_1, spike_train_2, t_start_, t_stop_, dt_):

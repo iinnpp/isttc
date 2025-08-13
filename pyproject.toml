@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "isttc"
+version = "0.1.0"
+description = "Intrinsic neuronal timescales tools (iSTTC)."
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "GPL-3.0"}
+authors = [{ name = "iinnpp", email = "i.pochinok@gmail.com" }]
+
+# --- Runtime dependencies (used by the library code itself) ---
+dependencies = [
+  "numpy>=1.23",
+  "scipy>=1.9",
+  "pandas>=1.5",
+  "scikit-learn>=1.1",
+]
+
+[project.optional-dependencies]
+# For users running notebooks/examples but not strictly required by the library:
+notebook = ["notebook>=7"]
+plot = ["matplotlib>=3.6", "seaborn>=0.12"]
+
+[project.urls]
+Homepage = "https://github.com/iinnpp/isttc"
+Issues = "https://github.com/iinnpp/isttc/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]

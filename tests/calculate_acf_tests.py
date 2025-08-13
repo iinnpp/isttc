@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 from scipy.stats import pearsonr, ConstantInputWarning
 
-from scripts.calculate_acf import sttc_calculate_t, sttc_fixed_2t
+from src.isttc.scripts.calculate_acf import sttc_calculate_t, sttc_fixed_2t
 
 
 def autocorr_pearsonr(signal_, lag_=1, verbose_=False):

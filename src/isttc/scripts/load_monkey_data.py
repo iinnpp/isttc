@@ -7,8 +7,8 @@ import csv
 import numpy as np
 import pandas as pd
 import os
-from scripts.cfg_global import project_folder_path
-from scripts.spike_train_utils import bin_spike_train_fixed_len
+from src.isttc.scripts.cfg_global import project_folder_path
+from src.isttc.scripts.spike_train_utils import bin_spike_train_fixed_len
 
 
 def prep_data_for_csv(units_l, n_units):

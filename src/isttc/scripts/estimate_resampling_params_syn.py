@@ -1,10 +1,10 @@
 import pickle
 import numpy as np
 
-from scripts.calculate_acf import acf_pearsonr_trial_avg, acf_sttc_trial_avg, acf_sttc_trial_concat
-from scripts.calculate_tau import fit_single_exp, func_single_exp_monkey
-from scripts.spike_train_utils import get_trials, bin_trials
-from scripts.cfg_global import project_folder_path
+from src.isttc.scripts.calculate_acf import acf_pearsonr_trial_avg, acf_sttc_trial_avg, acf_sttc_trial_concat
+from src.isttc.scripts.calculate_tau import fit_single_exp, func_single_exp_monkey
+from src.isttc.scripts.spike_train_utils import get_trials, bin_trials
+from src.isttc.scripts.cfg_global import project_folder_path
 
 
 # ========== Parameters ==========
