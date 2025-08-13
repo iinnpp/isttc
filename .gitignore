@@ -1,11 +1,13 @@
 # jupyter notebook checkpoints
-*.ipynb_checkpoints*
-
-# cache
-*__pycache__/*
-*.cache*
-*scripts/__pycache__/*
-
+.ipynb_checkpoints
+**/.ipynb_checkpoints/
 
 # idea pycharm project files
-*.idea
+*.idea/
+
+# cache
+src/**/__pycache__/
+
+# Build artifacts
+*.egg-info/
+**/*.egg-info/
