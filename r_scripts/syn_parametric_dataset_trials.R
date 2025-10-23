@@ -14,7 +14,7 @@ library(forcats)
 library(scales)
 
 
-df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\param_fr_alpha_tau\\tau_plot_long_trails_df.csv", 
+df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\param_fr_alpha_tau\\tau_trials_long_df.csv", 
                stringsAsFactors = TRUE)
 #summary(df)
 #head(df)
