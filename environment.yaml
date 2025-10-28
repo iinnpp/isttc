@@ -1,4 +1,4 @@
-name: isttc
+name: isttc_test
 dependencies:
   - python
   - pip
@@ -9,3 +9,5 @@ dependencies:
   - scipy
   - notebook
   - scikit-learn
+  - pip:
+      - git+https://github.com/roxana-zeraati/abcTau.git
