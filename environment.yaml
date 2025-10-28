@@ -1,4 +1,4 @@
-name: isttc_test
+name: isttc
 dependencies:
   - python
   - pip
