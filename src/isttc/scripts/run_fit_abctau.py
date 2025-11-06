@@ -45,7 +45,7 @@ n_procs = 1 # number of processor for parallel processing (set to 1 if there is 
 dataset_folder = project_folder_path + 'synthetic_dataset\\'
 results_folder = project_folder_path + 'results\\synthetic\\results\\param_fr_alpha_tau\\'
 
-results_folder_abctau = project_folder_path + 'results\\synthetic\\results\\param_fr_alpha_tau_abctau\\'
+results_folder_abctau = 'D:\\abctau_temp_1_1000\\'
 # path and filename to save the intermediate results after running each step
 inter_save_direc = results_folder_abctau + 'interim_results\\'
 datasave_path = results_folder_abctau + 'final_results\\'
@@ -110,7 +110,7 @@ if __name__ == "__main__":
 
     print(f'n spike trains {len(trial_dict_binned)}, trial_lens {trial_lens_binned[0]} ms')
 
-    for k, v in list(trial_dict_binned.items())[100:1000]:
+    for k, v in list(trial_dict_binned.items())[:1000]:
         spike_binned = v[0]
         numTrials = n_trials_binned[k]
         T = trial_lens_binned[k]
