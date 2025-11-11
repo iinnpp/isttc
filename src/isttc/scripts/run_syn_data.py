@@ -19,15 +19,15 @@ sttc_dt_avg = int(50 * (fs / 1000) - 1) # dt for iSTTC in trial-averaged style (
 m_iterations = 1 # number of trials sampling iterations
 
 # File paths
-dataset_folder = project_folder_path + 'results\\synthetic\\dataset\\'
-results_folder = project_folder_path + 'results\\synthetic\\results\\param_fr_alpha_tau\\'
+dataset_folder = project_folder_path + 'synthetic_dataset\\'
+results_folder = project_folder_path + 'results\\synthetic\\results\\param_fr_alpha_tau_zeros\\'
 
 # Execution flags
 calculate_acf_full = False
 calculate_sttc_full = False
 calculate_trials_pearsonr = False
 calculate_trials_sttc_avg = False
-calculate_trials_sttc_concat = False
+calculate_trials_sttc_concat = True
 
 # ========== Main ==========
 if __name__ == "__main__":
@@ -194,14 +194,14 @@ if __name__ == "__main__":
     # === iSTTC Trial Concat ===
     if calculate_trials_sttc_concat:
         print('[TRIAL] Starting iSTTC trial concat...')
-        with open(dataset_folder + '1_trial_3params_var_len600sec_100000_80trials_dict.pkl', 'rb') as f:
+        with open(dataset_folder + 'trials40.pkl', 'rb') as f:
             trial_dict_full = pickle.load(f)
         trial_dict = trial_dict_full['trial_dict']
         n_trials_all = trial_dict_full['n_trials']
         trial_lens_all = trial_dict_full['trial_lens']
 
         isttc_concat_results = {}
-        start_idx, stop_idx = 0, len(trial_dict)
+        start_idx, stop_idx = 0, 100 # len(trial_dict)
         for i, (k, v) in enumerate(islice(trial_dict.items(), start_idx, stop_idx), start=1):
             print(f'[TRIAL] iSTTC concat - Unit {k} ({i}/{stop_idx - start_idx}, {datetime.now()}')
             n_trials = n_trials_all[k]
@@ -227,10 +227,11 @@ if __name__ == "__main__":
                     'fit_r_squared': fit[4], 'explained_var': fit[5],
                     'popt': fit[0], 'pcov': fit[1], 'log_message': fit[6]
                 })
+                isttc_concat_acf_l.append(acf_concat)
             isttc_concat_results[k] = {'taus': isttc_concat_taus_l,
                                        'acf': isttc_concat_acf_l}
 
-        with open(results_folder + 'sttc_trial_concat_50ms_80_trials_dict.pkl', "wb") as f:
+        with open(results_folder + 'sttc_trial_concat_50ms_40_trials_dict.pkl', "wb") as f:
             pickle.dump(isttc_concat_results, f)
 
 
