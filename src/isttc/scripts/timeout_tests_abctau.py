@@ -30,7 +30,7 @@ distFunc = "linear_distance"
 t_min, t_max = 0.0, 400.0
 priorDist = [stats.uniform(loc=t_min, scale=t_max - t_min)]
 
-# aABC fitting parameters
+# fitting parameters
 epsilon_0 = 1
 min_samples = 50
 steps = 60
@@ -179,11 +179,11 @@ if __name__ == "__main__":
 
     print(f"n spike trains {len(trial_dict_binned)}, trial_lens {trial_lens_binned[0]} ms")
 
-    # Choose your timeout (seconds)
+    # timeout (seconds)
     TIMEOUT_S = 15 * 60  # 10 minutes
 
     # Iterate
-    for k, v in list(trial_dict_binned.items())[:1000]:
+    for k, v in list(trial_dict_binned.items())[8000:10000]:
         spike_binned = v[0]
         numTrials = n_trials_binned[k]
         T = trial_lens_binned[k]
