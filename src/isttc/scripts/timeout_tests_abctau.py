@@ -40,7 +40,7 @@ minAccRate = 0.01
 
 # File paths
 dataset_folder = project_folder_path + "synthetic_dataset\\"
-results_folder_abctau = r"D:\test_timeout\\"
+results_folder_abctau = r"D:\all_abctau_dst_gamma_0_01_50_comp_time\\"
 inter_save_direc = results_folder_abctau + "interim_results\\"
 datasave_path = results_folder_abctau + "final_results\\"
 
@@ -157,14 +157,16 @@ def fit_one_unit(args):
     globals()["disp"] = disp  # local per-trial dispersion
 
     # Run ABC (disable nested parallelism)
+
+    start = time.perf_counter()
     abc_results, final_step = abcTau.fit.fit_withABC(
         MyModel, data_sumStat, priorDist, inter_save_direc, inter_filename,
         datasave_path, filenameSave, epsilon_0, min_samples,
         steps, minAccRate, False, 1,  # parallel=False, n_procs=1
         disp
     )
-
-    return {"k": k, "final_step": int(final_step), "skipped": False}
+    elapsed_time = time.perf_counter() - start
+    return {"k": k, "final_step": int(final_step), "skipped": False, "elapsed_time": elapsed_time}
 
 # ========== Main ==========
 if __name__ == "__main__":
@@ -180,10 +182,10 @@ if __name__ == "__main__":
     print(f"n spike trains {len(trial_dict_binned)}, trial_lens {trial_lens_binned[0]} ms")
 
     # timeout (seconds)
-    TIMEOUT_S = 15 * 60  # 10 minutes
+    TIMEOUT_S = 15 * 60
 
     # Iterate
-    for k, v in list(trial_dict_binned.items())[8000:10000]:
+    for k, v in list(trial_dict_binned.items())[:1000]:
         spike_binned = v[0]
         numTrials = n_trials_binned[k]
         T = trial_lens_binned[k]
@@ -220,5 +222,10 @@ if __name__ == "__main__":
             print(f"### unit {k} skipped: {res.get('reason')}")
             continue
 
-        print(f"### unit {k} finished (final_step={res['final_step']})")
+        print(f"### unit {k} finished (final_step={res['final_step']}, elapsed time = {res['elapsed_time']})")
+
+        unit_time_dict = {'unit_id': k,
+                        'elapsed_time': res['elapsed_time']}
+        with open(results_folder_abctau + f'comp_time\\elapsed_time_spike_train_{k}.pkl', "wb") as f:
+            pickle.dump(unit_time_dict, f)
 
