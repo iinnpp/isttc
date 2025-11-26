@@ -10,13 +10,14 @@ library(patchwork)
 library(forcats)
 library(scales)
 
-df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\bin_size_runs\\full_signal\\summary_tau_full_long_lags_df.csv", 
+df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\bin_size_runs\\trials\\summary_tau_trials_long_lags_df.csv", 
                stringsAsFactors = TRUE)
+
 
 df$bin_size <- factor(df$bin_size)
 df$bin_size <- relevel(df$bin_size, ref = "50")
 
-df$method <- relevel(df$method, ref = "acf_full")
+df$method <- relevel(df$method, ref = "pearsonr_trial_avg")
 
 df <- df %>%
   mutate(
@@ -86,7 +87,7 @@ summary(m2_reml)
 # forest plot of fixed effects - simple version
 p <- plot_model(
   m2_reml, 
-  terms = c("bin_size10", "bin_size40", "bin_size60", "bin_size100", "bin_size10:methodacf_isttc_full", "bin_size40:methodacf_isttc_full", "bin_size60:methodacf_isttc_full", "bin_size100:methodacf_isttc_full"),
+  terms = c("bin_size10", "bin_size40", "bin_size60", "bin_size100", "bin_size10:methodsttc_trial_concat", "bin_size40:methodsttc_trial_concat", "bin_size60:methodsttc_trial_concat", "bin_size100:methodsttc_trial_concat"),
   show.values = TRUE,
   value.offset = .3,
   value.size = 4,
@@ -95,5 +96,5 @@ p <- plot_model(
   vline.color = "blue",
   width = 0.1
 )
-p10 <- p + scale_y_continuous(limits = c(-0.03, 0.025))
+p10 <- p + scale_y_continuous(limits = c(-0.2, 0.1))
 p10
