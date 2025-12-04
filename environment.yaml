@@ -8,6 +8,8 @@ dependencies:
   - pandas
   - scipy
   - notebook
+  - jupyter          
+  - statsmodels      
   - scikit-learn
   - pip:
       - git+https://github.com/roxana-zeraati/abcTau.git
