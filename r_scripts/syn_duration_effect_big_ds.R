@@ -12,7 +12,10 @@ library(forcats)
 library(scales)
 
 
-df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\param_fr_alpha_tau\\tau_plot_long_var_len_5durations_df.csv", 
+#df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\z_param_fr_alpha_tau\\tau_plot_long_var_len_5durations_df.csv", 
+#               stringsAsFactors = TRUE)
+
+df <- read.csv("E:\\work\\q_backup_06_03_2025\\projects\\isttc\\results\\synthetic\\results\\param_fr_alpha_tau\\summary_tau_full_long_var_length_df.csv", 
                stringsAsFactors = TRUE)
 
 # relevel
