@@ -1,55 +1,21 @@
-"""
-Functions that are used to estimate intrinsic timescale (time constant tau) based on ACF.
-"""
+"""Estimate intrinsic timescale (tau) from autocorrelation functions."""
 
 import numpy as np
-from scipy.optimize import curve_fit, OptimizeWarning
-from sklearn.metrics import r2_score, explained_variance_score
-from scipy import stats
-
 import warnings
 
+from scipy import stats
+from scipy.optimize import curve_fit, OptimizeWarning
+from sklearn.metrics import explained_variance_score, r2_score
 
-def deprecated_func_single_exp(x, a, b, c):
-    """
-    Exponential function to fit the data.
-    :param x: 1d array, independent variable
-    :param a: float, parameter to fit
-    :param b: float, parameter to fit
-    :param c: float, parameter to fit
-    :return: callable
-    """
-    return a * np.exp(-b * x) + c
+
+MAX_FIT_EVALUATIONS = 1_000_000_000
+TAU_PARAM_INDEX = 1
+CONFIDENCE_LEVEL = 0.975
+BOUNDED_TAU_PARAMS = ([0, 0, -np.inf], [np.inf, np.inf, np.inf])
 
 
 def func_single_exp(x, a, tau, c):
-    """
-    Exponential function where the decay time constant tau is fitted directly.
-
-    :param x: 1d array, independent variable
-    :param a: float, amplitude parameter
-    :param tau: float, time constant parameter
-    :param c: float, offset parameter
-    :return: computed exponential function values
-    """
-    return a * np.exp(-x / tau) + c
-
-
-def deprecated_func_single_exp_monkey(x, a, b, c):
-    """
-    Exponential function to fit the data.
-    :param x: 1d array, independent variable
-    :param a: float, parameter to fit
-    :param b: float, parameter to fit
-    :param c: float, parameter to fit
-    :return: callable
-    """
-    return a * (np.exp(-b * x) + c)
-
-
-def func_single_exp_monkey(x, a, tau, c):
-    """
-    Exponential function where the decay time constant tau is fitted directly.
+    """Exponential decay with tau fitted directly.
 
     :param x: 1d array, independent variable
     :param a: float, amplitude parameter
@@ -60,53 +26,41 @@ def func_single_exp_monkey(x, a, tau, c):
     return a * (np.exp(-x / tau) + c)
 
 
-def deprecated_fit_single_exp(ydata_to_fit_, start_idx_=1, exp_fun_=func_single_exp):
-    """
-    Fit function func_exp to data using non-linear least square.
+def _nan_ci():
+    return np.nan, np.nan
 
-    :param exp_fun_:
-    :param ydata_to_fit_: 1d array, the dependant data to fit
-    :param start_idx_: int, index to start fitting from
-    :return: fit_popt, fit_pcov, tau, fit_r_squared, log_message
-    """
-    t = np.linspace(0, len(ydata_to_fit_) - 1, len(ydata_to_fit_)).astype(int)
 
-    with warnings.catch_warnings():
-        warnings.filterwarnings('error')
-        try:
-            # maxfev - I used 5000, now it is like in Siegle
-            popt, pcov = curve_fit(exp_fun_, t[start_idx_:], ydata_to_fit_[start_idx_:], maxfev=1000000000)
-            fit_popt = popt
-            fit_pcov = pcov
-            tau = 1 / fit_popt[1]
-            # fit r-squared
-            y_pred = exp_fun_(t[start_idx_:], *popt)
-            fit_r_squared = r2_score(ydata_to_fit_[start_idx_:], y_pred)
-            log_message = 'ok'
-        except RuntimeError as e:
-            print('RuntimeError: {}'.format(e))
-            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
-            log_message = 'RuntimeError'
-        except OptimizeWarning as o:
-            print('OptimizeWarning: {}'.format(o))
-            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
-            log_message = 'OptimizeWarning'
-        except RuntimeWarning as re:
-            print('RuntimeWarning: {}'.format(re))
-            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
-            log_message = 'RuntimeWarning'
-        except ValueError as ve:
-            print('ValueError: {}'.format(ve))
-            print('Possible reason: acf contains NaNs, low spike count')
-            fit_popt, fit_pcov, tau, fit_r_squared = np.nan, np.nan, np.nan, np.nan
-            log_message = 'ValueError'
+def _format_fit_error(error):
+    print(f'{type(error).__name__}: {error}')
+    if isinstance(error, ValueError):
+        print('Possible reason: acf contains NaNs, low spike count')
+    return type(error).__name__
 
-    return fit_popt, fit_pcov, tau, fit_r_squared, log_message
+
+def _student_t_tau_ci(tau, covariance, n_observations, n_params):
+    dof = max(n_observations - n_params, 1)
+    t_score = stats.t.ppf(CONFIDENCE_LEVEL, dof)
+    tau_std_err = np.sqrt(covariance[TAU_PARAM_INDEX, TAU_PARAM_INDEX])
+    return tau - t_score * tau_std_err, tau + t_score * tau_std_err
+
+
+def _normal_tau_ci(tau, covariance):
+    tau_variance = covariance[TAU_PARAM_INDEX, TAU_PARAM_INDEX]
+    if np.isnan(tau_variance):
+        return _nan_ci(), np.nan
+
+    tau_std_err = np.sqrt(tau_variance)
+    z_score = stats.norm.ppf(CONFIDENCE_LEVEL)
+    return (tau - z_score * tau_std_err, tau + z_score * tau_std_err), tau_variance
+
+
+def _fit_quality(y_true, y_pred):
+    return r2_score(y_true, y_pred), explained_variance_score(y_true, y_pred)
 
 
 def fit_single_exp(ydata_to_fit_, start_idx_=1, exp_fun_=func_single_exp):
-    """
-    Fit an exponential function to data using non-linear least squares.
+    """Fit an exponential function to one ACF using non-linear least squares.
+
     Confidence interval is estimated using Student's t-distribution.
 
     :param ydata_to_fit_: 1D array, dependent data to fit
@@ -114,65 +68,38 @@ def fit_single_exp(ydata_to_fit_, start_idx_=1, exp_fun_=func_single_exp):
     :param exp_fun_: function, the exponential function to fit
     :return: fit_popt, fit_pcov, tau, tau_CI, fit_r_squared, explained_var, log_message
     """
-
-    t = np.arange(len(ydata_to_fit_))  # Time indices
+    t = np.arange(len(ydata_to_fit_))
+    x_fit = t[start_idx_:]
+    y_fit = ydata_to_fit_[start_idx_:]
 
     with warnings.catch_warnings():
-        warnings.filterwarnings('error')  # Convert warnings to exceptions
-
+        warnings.filterwarnings('error')
         try:
-            # Perform curve fitting with parameter bounds, maxfev - I used 5000, now it is like in Siegle
             popt, pcov = curve_fit(
-                exp_fun_, t[start_idx_:], ydata_to_fit_[start_idx_:],
-                maxfev=1000000000,
-                bounds=([0, 0, -np.inf], [np.inf, np.inf, np.inf])  # Ensuring tau > 0
+                exp_fun_,
+                x_fit,
+                y_fit,
+                maxfev=MAX_FIT_EVALUATIONS,
+                bounds=BOUNDED_TAU_PARAMS,
             )
             fit_popt = popt
             fit_pcov = pcov
-            tau = fit_popt[1]
-
-            # Compute confidence interval for tau using Student's t-distribution
-            dof = max(len(ydata_to_fit_) - len(fit_popt), 1)  # Degrees of freedom
-            t_score = stats.t.ppf(0.975, dof)  # 95% confidence level
-            tau_std_err = np.sqrt(fit_pcov[1, 1])  # Standard error for tau
-            tau_ci = (tau - t_score * tau_std_err, tau + t_score * tau_std_err)
-
-            # Compute R-squared score
-            y_pred = exp_fun_(t[start_idx_:], *popt)
-            fit_r_squared = r2_score(ydata_to_fit_[start_idx_:], y_pred)
-
-            # Compute Explained Variance Score
-            explained_var = explained_variance_score(ydata_to_fit_[start_idx_:], y_pred)
-
+            tau = fit_popt[TAU_PARAM_INDEX]
+            tau_ci = _student_t_tau_ci(tau, fit_pcov, len(ydata_to_fit_), len(fit_popt))
+            y_pred = exp_fun_(x_fit, *popt)
+            fit_r_squared, explained_var = _fit_quality(y_fit, y_pred)
             log_message = "ok"
-        except RuntimeError as e:
-            print('RuntimeError: {}'.format(e))
-            fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var = np.nan, np.nan, np.nan, (
-                np.nan, np.nan), np.nan, np.nan
-            log_message = 'RuntimeError'
-        except OptimizeWarning as o:
-            print('OptimizeWarning: {}'.format(o))
-            fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var = np.nan, np.nan, np.nan, (
-                np.nan, np.nan), np.nan, np.nan
-            log_message = 'OptimizeWarning'
-        except RuntimeWarning as re:
-            print('RuntimeWarning: {}'.format(re))
-            fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var = np.nan, np.nan, np.nan, (
-                np.nan, np.nan), np.nan, np.nan
-            log_message = 'RuntimeWarning'
-        except ValueError as ve:
-            print('ValueError: {}'.format(ve))
-            print('Possible reason: acf contains NaNs, low spike count')
-            fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var = np.nan, np.nan, np.nan, (
-                np.nan, np.nan), np.nan, np.nan
-            log_message = 'ValueError'
+        except (RuntimeError, OptimizeWarning, RuntimeWarning, ValueError) as error:
+            fit_popt = fit_pcov = tau = fit_r_squared = explained_var = np.nan
+            tau_ci = _nan_ci()
+            log_message = _format_fit_error(error)
 
     return fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message
 
 
 def fit_single_exp_2d(ydata_to_fit_2d_, start_idx_=1, exp_fun_=func_single_exp):
-    """
-    Fit function func_exp to data using non-linear least square.
+    """Fit an exponential function to stacked trial ACF values.
+
     Confidence interval is estimated using normal distribution.
 
     :param exp_fun_:
@@ -180,54 +107,24 @@ def fit_single_exp_2d(ydata_to_fit_2d_, start_idx_=1, exp_fun_=func_single_exp):
     :param start_idx_: int, index to start fitting from
     :return: fit_popt, fit_pcov, tau, fit_r_squared, log_message
     """
-
-    t = np.linspace(start_idx_, ydata_to_fit_2d_.shape[1] - 1, ydata_to_fit_2d_.shape[1] - start_idx_).astype(int)
-    # make 1d for curve_fit
+    t = np.arange(start_idx_, ydata_to_fit_2d_.shape[1])
     acf_1d = np.hstack(ydata_to_fit_2d_[:, start_idx_:])
     t_1d = np.tile(t, reps=ydata_to_fit_2d_.shape[0])
 
     with warnings.catch_warnings():
         warnings.filterwarnings('error')
         try:
-            # maxfev - I used 5000, now it is like in Siegle
-            popt, pcov = curve_fit(exp_fun_, t_1d, acf_1d, maxfev=1000000000)
+            popt, pcov = curve_fit(exp_fun_, t_1d, acf_1d, maxfev=MAX_FIT_EVALUATIONS)
             fit_popt = popt
             fit_pcov = pcov
-            tau = fit_popt[1]
-
-            # Compute confidence interval for tau using normal distribution
-            if not np.isnan(pcov[1, 1]):
-                tau_variance = pcov[1, 1]  # variance from the covariance matrix
-                tau_std_err = np.sqrt(tau_variance)  # standard error
-            else:
-                tau_variance, tau_std_err = np.nan, np.nan
-            z_score = stats.norm.ppf(0.975)  # 95% confidence level
-            tau_ci = (tau - z_score * tau_std_err, tau + z_score * tau_std_err) if not np.isnan(tau_std_err) \
-                else (np.nan, np.nan)
-
-            # Compute R-squared score
+            tau = fit_popt[TAU_PARAM_INDEX]
+            tau_ci, tau_variance = _normal_tau_ci(tau, fit_pcov)
             y_pred = exp_fun_(t_1d, *popt)
-            fit_r_squared = r2_score(acf_1d, y_pred)
-
-            # Compute Explained Variance Score
-            fit_explained_var = explained_variance_score(acf_1d, y_pred)
+            fit_r_squared, fit_explained_var = _fit_quality(acf_1d, y_pred)
             log_message = 'ok'
-        except RuntimeError as e:
-            print('RuntimeError: {}'.format(e))
-            fit_popt, fit_pcov, tau, tau_ci, tau_variance, fit_r_squared, fit_explained_var = np.nan, np.nan, np.nan, (np.nan, np.nan), np.nan, np.nan, np.nan
-            log_message = 'RuntimeError'
-        except OptimizeWarning as o:
-            print('OptimizeWarning: {}'.format(o))
-            fit_popt, fit_pcov, tau, tau_ci, tau_variance, fit_r_squared, fit_explained_var = np.nan, np.nan, np.nan, (np.nan, np.nan), np.nan, np.nan, np.nan
-            log_message = 'OptimizeWarning'
-        except RuntimeWarning as re:
-            print('RuntimeWarning: {}'.format(re))
-            fit_popt, fit_pcov, tau, tau_ci, tau_variance, fit_r_squared, fit_explained_var = np.nan, np.nan, np.nan, (np.nan, np.nan), np.nan, np.nan, np.nan
-            log_message = 'RuntimeWarning'
-        except ValueError as ve:
-            print('ValueError: {}'.format(ve))
-            print('Possible reason: acf contains NaNs, low spike count')
-            fit_popt, fit_pcov, tau, tau_ci, tau_variance, fit_r_squared, fit_explained_var = np.nan, np.nan, np.nan, (np.nan, np.nan), np.nan, np.nan, np.nan
-            log_message = 'ValueError'
+        except (RuntimeError, OptimizeWarning, RuntimeWarning, ValueError) as error:
+            fit_popt = fit_pcov = tau = tau_variance = fit_r_squared = fit_explained_var = np.nan
+            tau_ci = _nan_ci()
+            log_message = _format_fit_error(error)
 
     return fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, fit_explained_var, log_message

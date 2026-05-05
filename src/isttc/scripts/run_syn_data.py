@@ -6,7 +6,7 @@ import time
 from statsmodels.tsa.stattools import acf
 
 from src.isttc.scripts.calculate_acf import acf_pearsonr_trial_avg, acf_sttc_trial_avg, acf_sttc_trial_concat, acf_sttc
-from src.isttc.scripts.calculate_tau import fit_single_exp, func_single_exp_monkey
+from src.isttc.scripts.calculate_tau import fit_single_exp, func_single_exp
 from src.isttc.scripts.cfg_global import project_folder_path
 from src.isttc.scripts.spike_train_utils import bin_spike_train_fixed_len
 
@@ -68,7 +68,7 @@ if __name__ == "__main__":
             if idx % 100 == 0:
                 print(f'[ACF] Fitting unit {idx + 1}/{len(acf_full_l)} ({datetime.now()})')
             start = time.perf_counter()
-            fit = fit_single_exp(acf_vals, start_idx_=1, exp_fun_=func_single_exp_monkey)
+            fit = fit_single_exp(acf_vals, start_idx_=1, exp_fun_=func_single_exp)
             elapsed_fit = time.perf_counter() - start
             acf_results[idx] = {
                 'taus': {
@@ -115,7 +115,7 @@ if __name__ == "__main__":
             if idx % 100 == 0:
                 print(f'[iSTTC] Fitting unit {idx + 1}/{len(isttc_full_l)} ({datetime.now()})')
             start = time.perf_counter()
-            fit = fit_single_exp(acf_vals, start_idx_=1, exp_fun_=func_single_exp_monkey)
+            fit = fit_single_exp(acf_vals, start_idx_=1, exp_fun_=func_single_exp)
             elapsed_fit = time.perf_counter() - start
             isttc_results[idx] = {
                 'taus': {
@@ -164,7 +164,7 @@ if __name__ == "__main__":
                 elapsed_acf_l.append(elapsed_acf)
 
                 start = time.perf_counter()
-                fit = fit_single_exp(acf_avg, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                fit = fit_single_exp(acf_avg, start_idx_=1, exp_fun_=func_single_exp)
                 elapsed_fit = time.perf_counter() - start
                 elapsed_fit_l.append(elapsed_fit)
 
@@ -213,7 +213,7 @@ if __name__ == "__main__":
                                                          sttc_dt_=sttc_dt_avg,
                                                          zero_padding_len_=int(150 * (fs / 1000)), # 150 ms is default
                                                          verbose_=False)
-                fit = fit_single_exp(acf_avg, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                fit = fit_single_exp(acf_avg, start_idx_=1, exp_fun_=func_single_exp)
                 isttc_avg_taus_l.append({
                     'tau': fit[2], 'tau_lower': fit[3][0], 'tau_upper': fit[3][1],
                     'fit_r_squared': fit[4], 'explained_var': fit[5],
@@ -265,7 +265,7 @@ if __name__ == "__main__":
                 elapsed_acf_l.append(elapsed_acf)
 
                 start = time.perf_counter()
-                fit = fit_single_exp(acf_concat, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                fit = fit_single_exp(acf_concat, start_idx_=1, exp_fun_=func_single_exp)
                 elapsed_fit = time.perf_counter() - start
                 elapsed_fit_l.append(elapsed_fit)
 

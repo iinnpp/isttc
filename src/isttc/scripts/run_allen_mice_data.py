@@ -7,7 +7,7 @@ from datetime import datetime
 from statsmodels.tsa.stattools import acf
 
 from src.isttc.scripts.calculate_acf import acf_sttc, acf_pearsonr_trial_avg, acf_sttc_trial_avg, acf_sttc_trial_concat
-from src.isttc.scripts.calculate_tau import fit_single_exp, func_single_exp_monkey
+from src.isttc.scripts.calculate_tau import fit_single_exp, func_single_exp
 from src.isttc.scripts.spike_train_utils import bin_spike_train_fixed_len
 from src.isttc.scripts.cfg_global import project_folder_path
 
@@ -206,7 +206,7 @@ if __name__ == "__main__":
                                                                                        n_lags,
                                                                                        verbose_=False)
                     fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(pearsonr_acf_average,
-                                                                                              start_idx_=1, exp_fun_=func_single_exp_monkey)
+                                                                                              start_idx_=1, exp_fun_=func_single_exp)
                     pearson_avg_l.append({'tau':tau,
                                           'tau_lower':tau_ci[0],
                                           'tau_upper':tau_ci[1],
@@ -245,7 +245,7 @@ if __name__ == "__main__":
                                                                            zero_padding_len_=int(150 * (fs / 1000)),
                                                                            verbose_=False)
                     fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(sttc_acf_average, start_idx_=1,
-                                                                                                                exp_fun_=func_single_exp_monkey)
+                                                                                              exp_fun_=func_single_exp)
                     sttc_avg_l.append({'tau':tau,
                                           'tau_lower':tau_ci[0],
                                           'tau_upper':tau_ci[1],
@@ -285,7 +285,7 @@ if __name__ == "__main__":
                                                        zero_padding_len_=int(3000 * (fs / 1000)),
                                                        verbose_=False)
                     fit_popt, fit_pcov, tau, tau_ci, fit_r_squared, explained_var, log_message = fit_single_exp(acf_concat, start_idx_=1,
-                                                                                                                exp_fun_=func_single_exp_monkey)
+                                                                                              exp_fun_=func_single_exp)
                     sttc_concat_l.append({'tau':tau,
                                           'tau_lower':tau_ci[0],
                                           'tau_upper':tau_ci[1],

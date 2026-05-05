@@ -2,7 +2,7 @@ import pickle
 import numpy as np
 
 from src.isttc.scripts.calculate_acf import acf_pearsonr_trial_avg, acf_sttc_trial_avg, acf_sttc_trial_concat
-from src.isttc.scripts.calculate_tau import fit_single_exp, func_single_exp_monkey
+from src.isttc.scripts.calculate_tau import fit_single_exp, func_single_exp
 from src.isttc.scripts.spike_train_utils import get_trials, bin_trials
 from src.isttc.scripts.cfg_global import project_folder_path
 
@@ -56,7 +56,7 @@ if __name__ == "__main__":
                     spikes_trials_binned = bin_trials(spikes_trials, trial_len, int(bin_size * (fs / 1000)))
                     # pearsonr
                     _, acf_average = acf_pearsonr_trial_avg(spikes_trials_binned, n_lags, verbose_=False)
-                    fit = fit_single_exp(acf_average, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                    fit = fit_single_exp(acf_average, start_idx_=1, exp_fun_=func_single_exp)
                     pearsonr_avg_taus_l.append({
                         'tau': fit[2], 'tau_lower': fit[3][0], 'tau_upper': fit[3][1],
                         'fit_r_squared': fit[4], 'explained_var': fit[5],
@@ -68,7 +68,7 @@ if __name__ == "__main__":
                                                                            sttc_dt_=sttc_dt_avg,
                                                                            zero_padding_len_=int(150 * (fs / 1000)),
                                                                            verbose_=False)
-                    fit = fit_single_exp(sttc_acf_average, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                    fit = fit_single_exp(sttc_acf_average, start_idx_=1, exp_fun_=func_single_exp)
                     sttc_avg_taus_l.append({
                         'tau': fit[2], 'tau_lower': fit[3][0], 'tau_upper': fit[3][1],
                         'fit_r_squared': fit[4], 'explained_var': fit[5],
@@ -81,7 +81,7 @@ if __name__ == "__main__":
                                                        trial_len_=trial_len,
                                                        zero_padding_len_=int(3000 * (fs / 1000)),
                                                        verbose_=False)
-                    fit = fit_single_exp(acf_concat, start_idx_=1, exp_fun_=func_single_exp_monkey)
+                    fit = fit_single_exp(acf_concat, start_idx_=1, exp_fun_=func_single_exp)
                     sttc_concat_taus_l.append({
                         'tau': fit[2], 'tau_lower': fit[3][0], 'tau_upper': fit[3][1],
                         'fit_r_squared': fit[4], 'explained_var': fit[5],
