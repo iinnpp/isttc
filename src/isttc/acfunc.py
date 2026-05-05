@@ -5,6 +5,7 @@ from .scripts.calculate_acf import (
     acf_sttc_trial_avg,
     acf_sttc_trial_concat,
     acf_sttc,
+    acf_sttc_fast,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "acf_sttc_trial_avg",
     "acf_sttc_trial_concat",
     "acf_sttc",
+    "acf_sttc_fast",
 ]
