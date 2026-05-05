@@ -395,6 +395,90 @@ def acf_sttc(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=Fa
     return acf_l
 
 
+def sttc_calculate_t_fast(spiketrain_, n_spikes_, dt_, t_start_, t_stop_, verbose_=False):
+    """
+    Fast version of sttc_calculate_t using vectorised overlap calculation.
+
+    Mirrors the reference function return values: absolute tiled time and
+    tiled-time proportion.
+    """
+    if n_spikes_ == 0:
+        return 0, 0
+
+    spiketrain = np.asarray(spiketrain_, dtype=np.float64)
+    time_abs = 2.0 * n_spikes_ * dt_
+
+    if n_spikes_ > 1:
+        diff = np.diff(spiketrain)
+        overlap = diff < 2 * dt_
+        time_abs -= 2 * dt_ * overlap.sum() - diff[overlap].sum()
+
+    if spiketrain[0] - t_start_ < dt_:
+        time_abs += spiketrain[0] - dt_ - t_start_
+    if t_stop_ - spiketrain[-1] < dt_:
+        time_abs += t_stop_ - (spiketrain[-1] + dt_)
+
+    time_prop = time_abs / (t_stop_ - t_start_)
+    if verbose_:
+        print(f'STTC fast T: time_abs {time_abs}, time_prop {time_prop}')
+    return float(time_abs), float(time_prop)
+
+
+def sttc_calculate_p_fast(spiketrain_1_, spiketrain_2_, n_spikes_1_, n_spikes_2_, dt_):
+    """
+    Fast version of sttc_calculate_p using np.searchsorted.
+
+    Returns the number of spikes in the first train that are within +/-dt of
+    any spike in the second train, matching sttc_calculate_p.
+    """
+    if n_spikes_1_ == 0 or n_spikes_2_ == 0:
+        return 0
+
+    spiketrain_1 = np.asarray(spiketrain_1_, dtype=np.float64)
+    spiketrain_2 = np.asarray(spiketrain_2_, dtype=np.float64)
+    lo = np.searchsorted(spiketrain_2, spiketrain_1 - dt_, side="left")
+    hi = np.searchsorted(spiketrain_2, spiketrain_1 + dt_, side="right")
+    return int((hi > lo).sum())
+
+
+def acf_sttc_fast(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=False):
+    """
+    Fast autocorrelation using STTC.
+
+    This is equivalent to acf_sttc but uses np.searchsorted for the P term.
+    """
+    signal = np.asarray(signal_, dtype=np.float64)
+    acf = np.full(n_lags_ + 1, np.nan, dtype=np.float32)
+    acf[0] = 0.0 if len(signal) == 0 else 1.0
+
+    for k in range(1, n_lags_ + 1):
+        shift = k * lag_shift_
+        t_stop = signal_length_ - shift
+        if t_stop <= 0:
+            acf[k] = 0.0
+            continue
+
+        spike_1 = signal[signal >= shift] - shift
+        spike_2 = signal[signal < t_stop]
+        n_a, n_b = len(spike_1), len(spike_2)
+        if n_a == 0 or n_b == 0:
+            acf[k] = 0.0
+            continue
+
+        _, t_a = sttc_calculate_t_fast(spike_1, n_a, sttc_dt_, 0, t_stop, verbose_)
+        _, t_b = sttc_calculate_t_fast(spike_2, n_b, sttc_dt_, 0, t_stop, verbose_)
+        p_a = sttc_calculate_p_fast(spike_1, spike_2, n_a, n_b, sttc_dt_) / n_a
+        p_b = sttc_calculate_p_fast(spike_2, spike_1, n_b, n_a, sttc_dt_) / n_b
+
+        d1 = 1.0 - p_a * t_b
+        d2 = 1.0 - p_b * t_a
+        t1 = (p_a - t_b) / d1 if abs(d1) > 1e-10 else np.nan
+        t2 = (p_b - t_a) / d2 if abs(d2) > 1e-10 else np.nan
+        acf[k] = float(0.5 * (t1 + t2))
+
+    return acf
+
+
 def acf_sttc_trial_concat(spike_train_l_: list, n_lags_: int, lag_shift_: int, sttc_dt_: int,
                           trial_len_: int, zero_padding_len_: int, verbose_: bool = True) -> np.ndarray:
     """

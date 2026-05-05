@@ -5,13 +5,13 @@ from .scripts.calculate_acf import (
     acf_sttc_trial_avg,
     acf_sttc_trial_concat,
     acf_sttc,
+    acf_sttc_fast,
 )
-from .isttc import isttc_acf
 
 __all__ = [
     "acf_pearsonr_trial_avg",
     "acf_sttc_trial_avg",
     "acf_sttc_trial_concat",
     "acf_sttc",
-    "isttc_acf",
+    "acf_sttc_fast",
 ]

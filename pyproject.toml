@@ -30,3 +30,9 @@ Issues = "https://github.com/iinnpp/isttc/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "."]
+markers = [
+  "benchmark: timing-sensitive benchmark tests",
+]
