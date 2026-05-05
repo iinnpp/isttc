@@ -57,6 +57,31 @@ acf_sttc(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=False)
 
 [acf_sttc]:https://github.com/iinnpp/isttc/blob/master/scripts/calculate_acf.py#L345
 
+#### `acf_sttc_fast()`
+
+Computes the same **autocorrelation function (ACF)** as `acf_sttc()`, but uses a faster STTC implementation with `np.searchsorted` for spike-window matching. It is intended as a drop-in replacement for long spike trains and returns values matching `acf_sttc()` within numerical precision.
+
+```python
+acf_sttc_fast(signal_, n_lags_, lag_shift_, sttc_dt_, signal_length_, verbose_=False)
+```
+
+Benchmarking on 1000 synthetic Hawkes spike trains spanning firing rates from 0.01 to 10 Hz, timescales from 50 to 300 ms, and excitation strengths from 0.1 to 0.9 showed:
+
+* average speedup across all 1000 spike trains: 17.69x
+* median speedup across all 1000 spike trains: 12.73x
+* average speedup for spike trains with at least 100 spikes: 27.64x
+* median speedup for spike trains with at least 100 spikes: 27.80x
+
+To reproduce the benchmark:
+
+```bash
+python benchmarks/benchmark_acf_sttc_fast.py --num-settings 1000 --repeats 1
+```
+
+[go to implementation][acf_sttc_fast]
+
+[acf_sttc_fast]:https://github.com/iinnpp/isttc/blob/master/src/isttc/scripts/calculate_acf.py
+
 #### `acf_sttc_trial_concat()`
 
 Computes the **autocorrelation function (ACF)** across multiple spike train trials using a modified **Spike Time Tiling Coefficient (STTC)**. Each trial is **zero-padded** before concatenation to prevent artificial correlations across trial boundaries. 
