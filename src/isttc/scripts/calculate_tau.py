@@ -85,7 +85,7 @@ def fit_single_exp(ydata_to_fit_, start_idx_=1, exp_fun_=func_single_exp):
             fit_popt = popt
             fit_pcov = pcov
             tau = fit_popt[TAU_PARAM_INDEX]
-            tau_ci = _student_t_tau_ci(tau, fit_pcov, len(ydata_to_fit_), len(fit_popt))
+            tau_ci = _student_t_tau_ci(tau, fit_pcov, len(y_fit), len(fit_popt))
             y_pred = exp_fun_(x_fit, *popt)
             fit_r_squared, explained_var = _fit_quality(y_fit, y_pred)
             log_message = "ok"
