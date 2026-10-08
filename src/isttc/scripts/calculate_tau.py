@@ -15,30 +15,36 @@ BOUNDED_TAU_PARAMS = ([0, 0, -np.inf], [np.inf, np.inf, np.inf])
 
 
 def func_single_exp(x, a, tau, c):
-    """Exponential decay with tau fitted directly.
+    """Exponential decay plus a scaled constant offset.
+
+    The model is ``a * (exp(-x / tau) + c)``, so its amplitude is ``a``
+    and its additive baseline is ``a * c``.
 
     :param x: 1d array, independent variable
     :param a: float, amplitude parameter
     :param tau: float, time constant parameter
-    :param c: float, offset parameter
+    :param c: float, offset scaled relative to the amplitude
     :return: computed exponential function values
     """
     return a * (np.exp(-x / tau) + c)
 
 
 def func_multi_exp(x, *params):
-    """Sum of exponential decays with interleaved amplitude/tau parameters.
+    """Constant baseline plus a sum of exponential decays.
 
-    Parameters are ``(c_1, tau_1, c_2, tau_2, ...)``.  No constant
-    offset is included, matching the model in Shi et al. (2025).
+    Parameters are ``(c_1, tau_1, c_2, tau_2, ..., baseline)``. The
+    baseline is additive and is not treated as a timescale component.
     """
-    if len(params) == 0 or len(params) % 2:
-        raise ValueError("Multi-exponential parameters must be (c, tau) pairs")
+    if len(params) < 3 or len(params) % 2 == 0:
+        raise ValueError(
+            "Multi-exponential parameters must be (c, tau) pairs followed by a baseline"
+        )
 
     x = np.asarray(x, dtype=float)
-    coefficients = np.asarray(params[0::2], dtype=float)
-    taus = np.asarray(params[1::2], dtype=float)
-    return np.sum(
+    coefficients = np.asarray(params[:-1:2], dtype=float)
+    taus = np.asarray(params[1:-1:2], dtype=float)
+    baseline = float(params[-1])
+    return baseline + np.sum(
         coefficients[:, np.newaxis] * np.exp(-x[np.newaxis, :] / taus[:, np.newaxis]),
         axis=0,
     )
@@ -77,31 +83,42 @@ def _fit_quality(y_true, y_pred):
 
 
 def _multi_exp_initial_parameters(x, y, n_components, min_tau, max_tau, offset):
-    """Construct deterministic, log-spaced initial parameters for one fit."""
+    """Construct initial component pairs and an additive baseline."""
     fractions = np.arange(1, n_components + 1, dtype=float) / (n_components + 1)
     fractions = np.clip(fractions + offset, 0.02, 0.98)
     log_taus = np.log(min_tau) + fractions * (np.log(max_tau) - np.log(min_tau))
     taus = np.exp(log_taus)
 
-    # Estimate starting amplitudes for the chosen taus, then project them onto
-    # the non-negative parameter space used by the model.
-    design = np.exp(-x[:, np.newaxis] / taus[np.newaxis, :])
-    coefficients, *_ = np.linalg.lstsq(design, y, rcond=None)
+    # Jointly estimate starting amplitudes and the constant baseline for the
+    # chosen taus, then project only the amplitudes onto their non-negative
+    # parameter space. The baseline remains unbounded.
+    design = np.column_stack([
+        np.exp(-x[:, np.newaxis] / taus[np.newaxis, :]),
+        np.ones(x.size),
+    ])
+    linear_params, *_ = np.linalg.lstsq(design, y, rcond=None)
+    coefficients = linear_params[:-1]
+    baseline = linear_params[-1]
     scale = max(float(np.nanmax(np.abs(y))), np.finfo(float).eps)
     coefficients = np.maximum(coefficients, scale * 1e-6)
 
-    initial = np.empty(2 * n_components, dtype=float)
-    initial[0::2] = coefficients
-    initial[1::2] = taus
+    initial = np.empty(2 * n_components + 1, dtype=float)
+    initial[0:-1:2] = coefficients
+    initial[1:-1:2] = taus
+    initial[-1] = baseline
     return initial
 
 
 def _sort_multi_exp_fit(popt, pcov):
-    """Order components by increasing tau and reorder covariance to match."""
-    component_order = np.argsort(popt[1::2])
-    parameter_order = np.asarray(
-        [index for component in component_order for index in (2 * component, 2 * component + 1)]
-    )
+    """Order components by increasing tau and leave the baseline last."""
+    component_order = np.argsort(popt[1:-1:2])
+    parameter_order = [
+        index
+        for component in component_order
+        for index in (2 * component, 2 * component + 1)
+    ]
+    parameter_order.append(len(popt) - 1)
+    parameter_order = np.asarray(parameter_order)
     return popt[parameter_order], pcov[np.ix_(parameter_order, parameter_order)]
 
 
@@ -115,14 +132,18 @@ def fit_multi_exponential(
     max_tau_=None,
     n_initializations_=5,
 ):
-    """Fit and select a 1--4 component exponential model using BIC (as in Shi et al., 2025).
+    """Fit and select 1--4 exponential components with an additive baseline.
 
-    The fitted model is ``AC(t) = sum_i c_i * exp(-t / tau_i)``. Candidate
+    The fitted model is ``AC(t) = baseline + sum_i c_i * exp(-t / tau_i)``.
+    Including an additive baseline in every candidate makes the one-component
+    model equivalent to ``func_single_exp`` up to parameterization. Candidate
     models are ranked by ``BIC = n * log(RSS / n) + k * log(n)``, where
-    ``k = 2 * n_components``. A candidate is eligible for selection only when
-    every component contributes at least ``min_component_fraction_`` of the
-    total fitted amplitude. No R-squared threshold is applied; R-squared and
-    explained variance are returned only as diagnostics.
+    ``k = 2 * n_components + 1``. A candidate is eligible for selection only
+    when every exponential component contributes at least
+    ``min_component_fraction_`` of the total exponential amplitude. The
+    baseline is excluded from both this contribution calculation and the
+    amplitude-weighted effective timescale. No R-squared threshold is applied;
+    R-squared and explained variance are returned only as diagnostics.
 
     :param ydata_to_fit_: 1D autocorrelation values.
     :param lag_times_: Optional 1D lag values in physical units. If omitted,
@@ -133,8 +154,9 @@ def fit_multi_exponential(
     :param min_tau_: Optional lower timescale bound, in ``lag_times_`` units.
     :param max_tau_: Optional upper timescale bound, in ``lag_times_`` units.
     :param n_initializations_: Number of deterministic initializations per model.
-    :return: Dictionary containing all selected taus and coefficients, the
-        effective timescale, fit diagnostics, and results for every candidate.
+    :return: Dictionary containing the selected baseline, all selected taus
+        and coefficients, the effective timescale of the baseline-subtracted
+        decay, fit diagnostics, and results for every candidate.
     """
     ydata = np.asarray(ydata_to_fit_, dtype=float)
     if ydata.ndim != 1:
@@ -184,7 +206,7 @@ def fit_multi_exponential(
     )
 
     for n_components in range(1, max_components_ + 1):
-        n_params = 2 * n_components
+        n_params = 2 * n_components + 1
         if x_fit.size <= n_params:
             candidate_fits.append({
                 "n_components": n_components,
@@ -192,8 +214,14 @@ def fit_multi_exponential(
             })
             continue
 
-        lower_bounds = np.tile([0.0, min_tau], n_components)
-        upper_bounds = np.tile([np.inf, max_tau], n_components)
+        lower_bounds = np.concatenate([
+            np.tile([0.0, min_tau], n_components),
+            [-np.inf],
+        ])
+        upper_bounds = np.concatenate([
+            np.tile([np.inf, max_tau], n_components),
+            [np.inf],
+        ])
         best_attempt = None
 
         for offset in initialization_offsets:
@@ -228,8 +256,9 @@ def fit_multi_exponential(
         rss, popt, pcov, y_pred = best_attempt
         popt, pcov = _sort_multi_exp_fit(popt, pcov)
         y_pred = func_multi_exp(x_fit, *popt)
-        coefficients = popt[0::2]
-        taus = popt[1::2]
+        coefficients = popt[:-1:2]
+        taus = popt[1:-1:2]
+        baseline = float(popt[-1])
         coefficient_sum = float(np.sum(coefficients))
         fractions = (
             coefficients / coefficient_sum
@@ -246,8 +275,10 @@ def fit_multi_exponential(
 
         candidate_fits.append({
             "n_components": n_components,
+            "n_params": n_params,
             "coefficients": coefficients,
             "taus": taus,
+            "baseline": baseline,
             "popt": popt,
             "pcov": pcov,
             "rss": rss,
@@ -269,6 +300,7 @@ def fit_multi_exponential(
             "n_components": 0,
             "coefficients": np.asarray([], dtype=float),
             "taus": np.asarray([], dtype=float),
+            "baseline": np.nan,
             "tau_eff": np.nan,
             "popt": np.nan,
             "pcov": np.nan,
